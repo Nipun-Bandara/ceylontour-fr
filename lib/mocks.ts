@@ -174,6 +174,68 @@ export const mockRecommend: ApiEnvelope<RecommendResponse> = envelope({
   ],
 });
 
+/**
+ * What each destination costs and how long it needs.
+ *
+ * F2 is explicit that budget and duration are **filters applied before
+ * scoring**, not scored factors: a destination that does not fit the budget is
+ * excluded rather than penalised. `recommendFor` below applies that filter so
+ * the mock behaves the way the real endpoint will, and so the empty state is
+ * reachable without a backend.
+ *
+ * With the contract's example request (50000 LKR, 4 days) all five pass, and
+ * Belihuloya comes out on top — same as the worked example in section 7.
+ */
+const MOCK_TRIP_REQUIREMENTS: Record<
+  number,
+  { min_budget_lkr: number; min_days: number }
+> = {
+  [MOCK_IDS.belihuloya]: { min_budget_lkr: 18000, min_days: 2 },
+  [MOCK_IDS.meemure]: { min_budget_lkr: 15000, min_days: 2 },
+  [MOCK_IDS.knuckles]: { min_budget_lkr: 28000, min_days: 3 },
+  [MOCK_IDS.ella]: { min_budget_lkr: 35000, min_days: 2 },
+  [MOCK_IDS.kalpitiya]: { min_budget_lkr: 42000, min_days: 3 },
+};
+
+/**
+ * Applies the budget and duration filter to the fixed ranking above.
+ *
+ * Only budget and duration change the result. Interest, crowd preference and
+ * sustainability weight are ignored — reproducing the weighted index in the
+ * mock layer would mean maintaining a second copy of N's Sustainability Index,
+ * which would drift and would be the wrong thing to build against. Ranking is
+ * the real endpoint's job.
+ *
+ * A malformed or missing body falls through to the unfiltered list rather than
+ * throwing. Validating the request is the API's job, and the mock has no
+ * business inventing a 400.
+ */
+export function recommendFor(body: unknown): ApiEnvelope<RecommendResponse> {
+  const request = isRecord(body) ? body : {};
+  const budget =
+    typeof request.budget_lkr === 'number' ? request.budget_lkr : undefined;
+  const days =
+    typeof request.duration_days === 'number'
+      ? request.duration_days
+      : undefined;
+
+  if (budget === undefined && days === undefined) return mockRecommend;
+
+  const results = mockRecommend.data.results.filter((result) => {
+    const needs = MOCK_TRIP_REQUIREMENTS[result.destination_id];
+    if (!needs) return true;
+    if (budget !== undefined && budget < needs.min_budget_lkr) return false;
+    if (days !== undefined && days < needs.min_days) return false;
+    return true;
+  });
+
+  return envelope({ results });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /* ------------------------------------------------------------------ */
 /* GET /api/destinations                                               */
 /* ------------------------------------------------------------------ */
@@ -625,10 +687,14 @@ function idFrom(segment: string | undefined): number | undefined {
  * screen — a missing mock should be obvious immediately.
  *
  * The query string is ignored. `?month=` changes nothing in the mock data.
+ *
+ * `body` is the request body for a POST. Only `/api/recommend` looks at it, so
+ * that the budget and duration filter behaves the way F2 describes.
  */
 export function resolveMock(
   method: string,
-  path: string
+  path: string,
+  body?: unknown
 ): ApiEnvelope<unknown> | undefined {
   const [pathname] = path.split('?');
   const segments = (pathname ?? '').split('/').filter(Boolean); // ['api', 'risk', '3']
@@ -639,7 +705,7 @@ export function resolveMock(
   if (verb === 'POST') {
     switch (resource) {
       case 'recommend':
-        return mockRecommend;
+        return recommendFor(body);
       case 'simulate':
         return mockSimulate;
       case 'auth':

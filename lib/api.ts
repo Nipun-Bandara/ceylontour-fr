@@ -145,10 +145,11 @@ function delay(ms: number): Promise<void> {
 
 async function serveMock<T>(
   method: string,
-  path: string
+  path: string,
+  body: unknown
 ): Promise<ApiEnvelope<T>> {
   await delay(MOCK_DELAY_MS);
-  const mock = resolveMock(method, path);
+  const mock = resolveMock(method, path, body);
   if (!mock) {
     throw new ApiError(
       CLIENT_ERROR_CODES.mockMissing,
@@ -171,7 +172,7 @@ export async function apiFetchWithMeta<T>(
   const method = options.method ?? 'GET';
 
   if (USE_MOCKS) {
-    return serveMock<T>(method, path);
+    return serveMock<T>(method, path, options.body);
   }
 
   if (!API_BASE_URL) {

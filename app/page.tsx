@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Card from '@/components/Card';
 import { isUsingMocks } from '@/lib/api';
 
@@ -30,6 +31,14 @@ export default function HomePage() {
             {usingMocks ? 'mock responses, no backend' : 'live API'}
           </span>
         </p>
+        {/* Plain link so F2 is reachable. The real call to action arrives
+            with F1, which replaces this page. */}
+        <Link
+          href="/recommend"
+          className="mt-4 inline-block rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+        >
+          Find a sustainable destination
+        </Link>
       </Card>
 
       <Card
