@@ -3,6 +3,8 @@ import {
   bandColors,
   bandSurfaceColors,
   brandColors,
+  confidenceColors,
+  confidenceSurfaceColors,
   contributionColors,
   neutralColors,
 } from './design-tokens';
@@ -27,6 +29,9 @@ const config: Config = {
         'band-surface': bandSurfaceColors,
         // bg-contribution-exact / bg-contribution-estimated
         contribution: contributionColors,
+        // text-confidence-measured / bg-confidence-surface-estimated
+        confidence: confidenceColors,
+        'confidence-surface': confidenceSurfaceColors,
         brand: brandColors,
         ...neutralColors,
       },

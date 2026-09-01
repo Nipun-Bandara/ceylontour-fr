@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Footer from '@/components/Footer';
 import Header from '@/components/Header';
+import { RecommendationProvider } from '@/lib/recommendation-context';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -27,11 +28,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="flex min-h-screen flex-col">
-        <Header />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
-          {children}
-        </main>
-        <Footer />
+        {/*
+          The provider sits above the router outlet so navigating between
+          /recommend and /results does not unmount it. That is what lets the
+          results page render the response the form already fetched instead of
+          fetching it a second time.
+        */}
+        <RecommendationProvider>
+          <Header />
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+            {children}
+          </main>
+          <Footer />
+        </RecommendationProvider>
       </body>
     </html>
   );

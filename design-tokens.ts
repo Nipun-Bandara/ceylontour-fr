@@ -43,6 +43,27 @@ export const contributionColors = {
   estimated: '#7c3aed',
 } as const;
 
+/**
+ * Confidence labels (F2, and the cross-cutting confidence rule). `measured`
+ * means the factor values came from real data, `estimated` means they came
+ * from a proxy.
+ *
+ * These deliberately echo the contribution colours above — anything estimated
+ * reads violet across the whole app — but they stay separate tokens, because
+ * confidence is a property of the input data and contribution kind is a
+ * property of the explanation. F3 can change one without disturbing the other.
+ */
+export const confidenceColors = {
+  measured: '#0f766e',
+  estimated: '#7c3aed',
+} as const;
+
+/** Tinted chip backgrounds for the same two labels. */
+export const confidenceSurfaceColors = {
+  measured: '#ccfbf1',
+  estimated: '#ede9fe',
+} as const;
+
 /** Neutral text and surface colours. */
 export const neutralColors = {
   /** Primary body text. */
@@ -64,3 +85,4 @@ export const brandColors = {
 
 export type BandToken = keyof typeof bandColors;
 export type ContributionToken = keyof typeof contributionColors;
+export type ConfidenceToken = keyof typeof confidenceColors;
