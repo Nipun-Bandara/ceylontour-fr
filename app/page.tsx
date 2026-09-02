@@ -1,62 +1,106 @@
 import Link from 'next/link';
-import Card from '@/components/Card';
 import { isUsingMocks } from '@/lib/api';
 
 /**
- * Placeholder home page. This is not F1 — it exists so the shell has
- * something to render and so `npm run dev` proves the layout, the tokens and
- * the mock switch are wired up. The real home page replaces this.
+ * F1 — the landing page.
+ *
+ * Deliberately a server component with no interactive parts, so the page ships
+ * no JavaScript of its own and there is nothing to wait for. No images, no
+ * video, no animation: the whole thing is text and CSS, which is the simplest
+ * way to meet the two-second budget rather than something to optimise later.
+ *
+ * The one-sentence description is the heading, and it avoids the vocabulary
+ * the rest of the project runs on. No "index", no "model", no "XAI", no
+ * "SHAP". Someone who has never heard any of those words should be able to
+ * read this page and know what the system is for.
  */
 export default function HomePage() {
-  const usingMocks = isUsingMocks();
-
   return (
-    <div className="space-y-4">
-      <Card
-        title="Skeleton is up"
-        subtitle="No feature pages yet. This placeholder gets replaced by F1."
-      >
-        <p className="text-sm text-ink">
-          The app shell, the typed API wrapper in{' '}
-          <code className="rounded bg-surface px-1 py-0.5 text-xs">lib/api.ts</code>{' '}
-          and the mock responses in{' '}
-          <code className="rounded bg-surface px-1 py-0.5 text-xs">
-            lib/mocks.ts
-          </code>{' '}
-          are in place. Pages get built on top of these.
-        </p>
-        <p className="mt-3 text-sm text-muted">
-          Data source:{' '}
-          <span className="font-medium text-ink">
-            {usingMocks ? 'mock responses, no backend' : 'live API'}
-          </span>
-        </p>
-        {/* Plain link so F2 is reachable. The real call to action arrives
-            with F1, which replaces this page. */}
-        <Link
-          href="/recommend"
-          className="mt-4 inline-block rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Find a sustainable destination
-        </Link>
-      </Card>
+    <div className="mx-auto max-w-3xl">
+      <section className="py-6 sm:py-10">
+        <h1 className="text-2xl font-semibold leading-snug tracking-tight text-ink sm:text-4xl sm:leading-tight">
+          Find places to visit in Sri Lanka that are good for you and good for
+          the country.
+        </h1>
 
-      <Card
-        title="Pressure bands"
-        subtitle="Green, amber and red come from design-tokens.ts. Components never write a hex value."
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
+          Tell us your budget, how long you have and what you enjoy. We suggest
+          destinations that fit, and show you the reasons behind every
+          suggestion so you can judge them yourself.
+        </p>
+
+        {/*
+          Stacked on a phone and side by side from `sm` up. Both are full-width
+          targets at 375px rather than two narrow buttons squeezed onto one row.
+        */}
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/recommend"
+            className="rounded-md bg-brand px-5 py-3 text-center text-base font-medium text-white hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+          >
+            Find a Sustainable Destination
+          </Link>
+          <Link
+            href="/about"
+            className="rounded-md border border-brand px-5 py-3 text-center text-base font-medium text-brand hover:bg-brand-light focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+          >
+            Explore Tourism Sustainability
+          </Link>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="how-it-works"
+        className="border-t border-line py-6 sm:py-8"
       >
-        <ul className="flex flex-wrap gap-2">
-          <li className="rounded-full bg-band-surface-low px-3 py-1 text-sm font-medium text-band-low">
-            Low pressure
-          </li>
-          <li className="rounded-full bg-band-surface-medium px-3 py-1 text-sm font-medium text-band-medium">
-            Medium pressure
-          </li>
-          <li className="rounded-full bg-band-surface-high px-3 py-1 text-sm font-medium text-band-high">
-            High pressure
-          </li>
-        </ul>
-      </Card>
+        <h2 id="how-it-works" className="sr-only">
+          How CeylonTour works
+        </h2>
+
+        <div className="grid gap-6 sm:grid-cols-3 sm:gap-8">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">What we score</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              Five things about every destination: its natural surroundings, how
+              crowded it gets, how much local families gain from visitors, how
+              well it fits your trip, and the state of its roads and facilities.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-ink">
+              Why we explain it
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              Every suggestion comes with the reasons behind it, and we say
+              which reasons are worked out exactly and which are an informed
+              guess. You should not have to take a number on trust.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-ink">
+              Where the data comes from
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              Official Sri Lankan tourism statistics, alongside open weather and
+              air quality records. Where a figure is an estimate rather than a
+              measurement, we label it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/*
+        Only rendered when the build is serving mock data, so it disappears
+        entirely in a real deployment. It is here so nobody demonstrates sample
+        numbers believing they are real ones.
+      */}
+      {isUsingMocks() && (
+        <p className="border-t border-line pt-4 text-xs text-muted">
+          This build is running on sample data, not live figures.
+        </p>
+      )}
     </div>
   );
 }
