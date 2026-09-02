@@ -90,12 +90,21 @@ export default function RiskView({ destinationId }: RiskViewProps) {
           Overtourism risk
           {risk !== null && `: ${risk.name}`}
         </h1>
-        <Link
-          href="/results"
-          className="text-sm font-medium text-brand underline underline-offset-2"
-        >
-          Back to results
-        </Link>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          {/* Otherwise the simulator is only reachable by typing a URL. */}
+          <Link
+            href={`/destination/${destinationId}/simulate`}
+            className="text-sm font-medium text-brand underline underline-offset-2"
+          >
+            Try changing the numbers
+          </Link>
+          <Link
+            href="/results"
+            className="text-sm font-medium text-brand underline underline-offset-2"
+          >
+            Back to results
+          </Link>
+        </div>
       </div>
 
       {notFound ? (
