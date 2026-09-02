@@ -107,6 +107,39 @@ Also unspecified in section 7: the allowed values for `interest` on
 `POST /api/recommend`. The example shows `"nature"`. The frontend has assumed
 a fixed list; see `Interest` in `types/api.ts`.
 
+### `POST /api/recommend` should return the forecast band per result
+
+F5 requires a warning on any result card whose forecast band is `high`. The
+recommend response has no band in it — section 7 returns a score, the five
+factors, the contributions and a sentence, and nothing about pressure.
+
+So the results page currently asks `GET /api/risk/{id}?month=` once per result
+just to learn the band, for the `travel_month` that was searched. Five results
+means five extra requests; twenty would mean twenty.
+
+**Proposed:** add the forecast band for the requested `travel_month` to each
+entry in `results`. The backend has already computed it, and it is one field:
+
+```json
+{ "destination_id": 3, "name": "Ella", "forecast_band": "high", "...": "..." }
+```
+
+This is the single change that would most improve F5.
+
+### `GET /api/alternatives/{id}` needs query parameters
+
+Section 7 lists this endpoint with no parameters. The frontend now sends three,
+because F5 cannot be met without them:
+
+| Parameter | Why |
+|---|---|
+| `budget_lkr` | F5: never suggest a destination outside the original budget filter |
+| `duration_days` | F5: same, for trip length |
+| `month` | "Lower pressure" means nothing without a month — a destination that is quieter in June may be busier in December |
+
+All three are optional, so the endpoint still answers when there is no search
+behind the page.
+
 ### Does `POST /api/recommend` return `"estimated"` contributions?
 
 Section 7's worked example returns index contributions only, every one of them

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Card from '@/components/Card';
 import ErrorState from '@/components/ErrorState';
 import ExplanationPanel from '@/components/ExplanationPanel';
+import HighPressureAlternatives from '@/components/HighPressureAlternatives';
 import Loading from '@/components/Loading';
 import PressureBandMeter from '@/components/PressureBandMeter';
 import { getRisk, isApiError } from '@/lib/api';
@@ -119,7 +120,12 @@ export default function RiskView({ destinationId }: RiskViewProps) {
           )}
 
           {!loading && error === null && risk !== null && (
-            <RiskDetail risk={risk} meta={meta} />
+            <RiskDetail
+              risk={risk}
+              meta={meta}
+              budgetLkr={search?.request.budget_lkr}
+              durationDays={search?.request.duration_days}
+            />
           )}
         </>
       )}
@@ -166,9 +172,13 @@ function MonthSelector({
 function RiskDetail({
   risk,
   meta,
+  budgetLkr,
+  durationDays,
 }: {
   risk: RiskResponse;
   meta: ApiMeta | null;
+  budgetLkr?: number;
+  durationDays?: number;
 }) {
   return (
     <>
@@ -190,6 +200,16 @@ function RiskDetail({
           </p>
         )}
       </Card>
+
+      {/* F5. Renders nothing at all unless this band is `high`. */}
+      <HighPressureAlternatives
+        destinationId={risk.destination_id}
+        destinationName={risk.name}
+        band={risk.band}
+        month={risk.month}
+        budgetLkr={budgetLkr}
+        durationDays={durationDays}
+      />
 
       <Card>
         {/*

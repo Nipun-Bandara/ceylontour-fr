@@ -27,6 +27,7 @@ import type {
   ApiMeta,
   DashboardSummaryResponse,
   DestinationDetailResponse,
+  Alternative,
   DestinationsResponse,
   EstimatedContribution,
   LoginResponse,
@@ -736,56 +737,129 @@ export function riskFor(
 /* GET /api/alternatives/{id}                                          */
 /* ------------------------------------------------------------------ */
 
-export const mockAlternatives: Record<
-  number,
-  ApiEnvelope<AlternativesResponse>
-> = {
-  [MOCK_IDS.ella]: envelope({
-    destination_id: MOCK_IDS.ella,
-    name: 'Ella',
-    band: 'high',
-    alternatives: [
-      {
-        destination_id: MOCK_IDS.belihuloya,
-        name: 'Belihuloya',
-        similarity_percent: 82,
-        predicted_pressure: 28,
-        band: 'low',
-        reason:
-          'Similar hill country walking and waterfalls, with far fewer visitors this month.',
-      },
-      {
-        destination_id: MOCK_IDS.knuckles,
-        name: 'Knuckles',
-        similarity_percent: 76,
-        predicted_pressure: 55,
-        band: 'medium',
-        reason:
-          'Similar montane landscape and trekking, with moderate visitor pressure.',
-      },
-      {
-        destination_id: MOCK_IDS.meemure,
-        name: 'Meemure',
-        similarity_percent: 68,
-        predicted_pressure: 19,
-        band: 'low',
-        reason:
-          'Similar climate and hiking, and the lowest forecast pressure of any comparable destination.',
-      },
-    ],
-    message: null,
-  }),
-  // The empty case. F5 requires saying so rather than returning a bad match,
-  // so the shell has something real to build the empty state against.
-  [MOCK_IDS.meemure]: envelope({
-    destination_id: MOCK_IDS.meemure,
-    name: 'Meemure',
-    band: 'low',
-    alternatives: [],
-    message:
-      'Meemure already has the lowest forecast pressure of any similar destination, so there is nothing quieter to suggest.',
-  }),
+/**
+ * Pairwise similarity, standing in for the cosine similarity over landscape
+ * type, activities, travel distance and climate that F5 describes.
+ *
+ * Written as pairs rather than a full matrix so each relationship is stated
+ * once and the two directions cannot disagree. A pair that is not listed
+ * scores 0 and is never offered as an alternative — better to suggest nothing
+ * than to suggest a beach to somebody who came for cloud forest.
+ */
+const SIMILARITY_PAIRS: ReadonlyArray<readonly [number, number, number]> = [
+  [MOCK_IDS.belihuloya, MOCK_IDS.knuckles, 85],
+  [MOCK_IDS.ella, MOCK_IDS.belihuloya, 82],
+  [MOCK_IDS.knuckles, MOCK_IDS.meemure, 80],
+  [MOCK_IDS.ella, MOCK_IDS.knuckles, 76],
+  [MOCK_IDS.belihuloya, MOCK_IDS.meemure, 74],
+  [MOCK_IDS.ella, MOCK_IDS.meemure, 68],
+  [MOCK_IDS.ella, MOCK_IDS.kalpitiya, 24],
+  [MOCK_IDS.belihuloya, MOCK_IDS.kalpitiya, 22],
+  [MOCK_IDS.knuckles, MOCK_IDS.kalpitiya, 20],
+  [MOCK_IDS.meemure, MOCK_IDS.kalpitiya, 18],
+];
+
+function similarityBetween(a: number, b: number): number {
+  const pair = SIMILARITY_PAIRS.find(
+    ([x, y]) => (x === a && y === b) || (x === b && y === a)
+  );
+  return pair ? pair[2] : 0;
+}
+
+/** Used to fill the one-sentence reason on each alternative. */
+const DESTINATION_CHARACTER: Record<number, string> = {
+  [MOCK_IDS.ella]: 'hill country walking and viewpoints',
+  [MOCK_IDS.belihuloya]: 'montane river valleys, waterfalls and hiking',
+  [MOCK_IDS.meemure]: 'remote forest village life and river walks',
+  [MOCK_IDS.knuckles]: 'cloud forest trekking and birdwatching',
+  [MOCK_IDS.kalpitiya]: 'coastal lagoons and open water',
 };
+
+/**
+ * Similar destinations with lower forecast pressure than the one asked about.
+ *
+ * Everything F5 requires is applied here rather than left to the UI, because
+ * the UI is not the right place to decide what counts as an acceptable
+ * suggestion:
+ *
+ *   - only destinations with *lower* forecast pressure that month
+ *   - only destinations inside the budget and trip length, when those were
+ *     passed; a suggestion the traveller cannot afford is not a suggestion
+ *   - only destinations with some real similarity to the source
+ *   - at most three, most similar first
+ *
+ * When nothing survives that, the list comes back empty with a message saying
+ * why. F5 asks for exactly this rather than a padded-out bad match.
+ */
+export function alternativesFor(
+  id: number,
+  query: { month: number; budget_lkr?: number; duration_days?: number }
+): ApiEnvelope<AlternativesResponse> | undefined {
+  const source = riskFor(id, query.month);
+  if (!source) return undefined;
+
+  const sourcePressure = source.data.predicted_pressure;
+  const monthName = monthLabel(query.month);
+
+  const alternatives: Alternative[] = Object.values(MOCK_IDS)
+    // flatMap rather than map-then-filter so the forecast is known to exist
+    // from here on, without a non-null assertion further down.
+    .flatMap((otherId) => {
+      if (otherId === id) return [];
+      const risk = riskFor(otherId, query.month);
+      if (!risk) return [];
+      return [
+        {
+          otherId,
+          data: risk.data,
+          needs: MOCK_TRIP_REQUIREMENTS[otherId],
+          similarity: similarityBetween(id, otherId),
+        },
+      ];
+    })
+    .filter(({ data, needs, similarity }) => {
+      if (similarity <= 0) return false;
+      if (data.predicted_pressure >= sourcePressure) return false;
+      if (needs === undefined) return true;
+      if (
+        query.budget_lkr !== undefined &&
+        query.budget_lkr < needs.min_budget_lkr
+      ) {
+        return false;
+      }
+      if (
+        query.duration_days !== undefined &&
+        query.duration_days < needs.min_days
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 3)
+    .map(({ otherId, data, similarity }) => ({
+      destination_id: otherId,
+      name: data.name,
+      similarity_percent: similarity,
+      predicted_pressure: data.predicted_pressure,
+      band: data.band,
+      reason: `Similar ${DESTINATION_CHARACTER[otherId] ?? 'landscape and activities'}, and forecast at ${data.predicted_pressure}% visitor pressure in ${monthName} against ${source.data.name}'s ${sourcePressure}%.`,
+    }));
+
+  const filtered =
+    query.budget_lkr !== undefined || query.duration_days !== undefined;
+
+  return envelope({
+    destination_id: id,
+    name: source.data.name,
+    band: source.data.band,
+    alternatives,
+    message:
+      alternatives.length > 0
+        ? null
+        : `Nothing comparable to ${source.data.name} is forecast to be quieter in ${monthName}${filtered ? ' within your budget and dates' : ''}. Travelling in a quieter month may do more than changing destination.`,
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* POST /api/simulate                                                  */
@@ -974,9 +1048,23 @@ export function resolveMock(
       const month = monthFrom(query) ?? 9;
       return riskFor(id, month) ?? notFound('That destination');
     }
-    case 'alternatives':
+    case 'alternatives': {
       if (id === undefined) return undefined;
-      return mockAlternatives[id] ?? notFound('That destination');
+      const params = new URLSearchParams(query ?? '');
+      const asNumber = (key: string): number | undefined => {
+        const raw = params.get(key);
+        if (raw === null) return undefined;
+        const value = Number.parseInt(raw, 10);
+        return Number.isNaN(value) ? undefined : value;
+      };
+      return (
+        alternativesFor(id, {
+          month: asNumber('month') ?? 9,
+          budget_lkr: asNumber('budget_lkr'),
+          duration_days: asNumber('duration_days'),
+        }) ?? notFound('That destination')
+      );
+    }
     case 'dashboard':
       return idSegment === 'summary' ? mockDashboardSummary : undefined;
     default:

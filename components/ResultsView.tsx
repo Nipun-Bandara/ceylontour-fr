@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import Card from '@/components/Card';
 import ResultCard from '@/components/ResultCard';
+import { getRisk } from '@/lib/api';
 import { formatDays, formatLkr } from '@/lib/format';
 import { interestLabel, monthLabel } from '@/lib/recommend-options';
 import { useRecommendation } from '@/lib/recommendation-context';
-import type { RecommendRequest } from '@/types/api';
+import type {
+  PressureBand,
+  Recommendation,
+  RecommendRequest,
+} from '@/types/api';
 
 /**
  * The ranked list (F2).
@@ -40,14 +46,83 @@ export default function ResultsView() {
 
       <SearchSummary request={request} />
 
-      <ol className="space-y-4">
-        {response.results.map((result, index) => (
-          <li key={result.destination_id}>
-            <ResultCard rank={index + 1} result={result} />
-          </li>
-        ))}
-      </ol>
+      <RankedResults request={request} results={response.results} />
     </div>
+  );
+}
+
+/**
+ * The ranked cards, plus the forecast band for each one.
+ *
+ * ## Why this fetches at all
+ *
+ * F5 needs to warn on a result card whose forecast band is `high`, and the
+ * recommend response does not carry a band — section 7 returns a score, the
+ * five factors, the contributions and a sentence, and nothing about pressure.
+ * So the band has to be asked for separately, one request per destination for
+ * the month the traveller is actually travelling in.
+ *
+ * That is five parallel requests for five results, which is fine here and
+ * would not be fine for twenty. **The right fix is on the other side of the
+ * contract:** `POST /api/recommend` should return the forecast band for the
+ * requested `travel_month` alongside each result. The backend has already
+ * computed it, and it is one field. Raised in `docs/api-contract.md`.
+ *
+ * A forecast that fails is left out rather than retried or reported. It only
+ * decides whether an extra warning appears, and a ranked list that renders
+ * without it is much better than one that does not render at all.
+ */
+function RankedResults({
+  request,
+  results,
+}: {
+  request: RecommendRequest;
+  results: Recommendation[];
+}) {
+  const [bands, setBands] = useState<Record<number, PressureBand>>({});
+
+  const ids = results.map((result) => result.destination_id).join(',');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const destinationIds = ids === '' ? [] : ids.split(',').map(Number);
+
+    void Promise.allSettled(
+      destinationIds.map((id) =>
+        getRisk(id, request.travel_month, { signal: controller.signal }).then(
+          (envelope) => [id, envelope.data.band] as const
+        )
+      )
+    ).then((settled) => {
+      if (controller.signal.aborted) return;
+      const next: Record<number, PressureBand> = {};
+      for (const outcome of settled) {
+        if (outcome.status === 'fulfilled') {
+          const [id, band] = outcome.value;
+          next[id] = band;
+        }
+      }
+      setBands(next);
+    });
+
+    return () => controller.abort();
+  }, [ids, request.travel_month]);
+
+  return (
+    <ol className="space-y-4">
+      {results.map((result, index) => (
+        <li key={result.destination_id}>
+          <ResultCard
+            rank={index + 1}
+            result={result}
+            band={bands[result.destination_id]}
+            month={request.travel_month}
+            budgetLkr={request.budget_lkr}
+            durationDays={request.duration_days}
+          />
+        </li>
+      ))}
+    </ol>
   );
 }
 

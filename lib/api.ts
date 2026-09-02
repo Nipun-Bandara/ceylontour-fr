@@ -16,6 +16,7 @@
 
 import { isMockError, resolveMock } from '@/lib/mocks';
 import type {
+  AlternativesQuery,
   AlternativesResponse,
   ApiEnvelope,
   ApiErrorBody,
@@ -319,15 +320,34 @@ export function getRisk(
   });
 }
 
-/** F5 — similar destinations with lower pressure. */
+/**
+ * F5 — similar destinations with lower pressure.
+ *
+ * The traveller's budget, trip length and month are passed on so the endpoint
+ * can keep its suggestions inside the filters they already set. F5 is explicit
+ * that an alternative outside the original budget or duration is not an
+ * acceptable answer. Anything the caller does not know is left off the query
+ * rather than sent as a guess.
+ */
 export function getAlternatives(
   id: number,
+  query: AlternativesQuery = {},
   options: RequestOptions = {}
 ): Promise<AlternativesResponse> {
-  return apiFetch<AlternativesResponse>(`/api/alternatives/${id}`, {
-    ...options,
-    method: 'GET',
-  });
+  const params = new URLSearchParams();
+  if (query.budget_lkr !== undefined) {
+    params.set('budget_lkr', String(query.budget_lkr));
+  }
+  if (query.duration_days !== undefined) {
+    params.set('duration_days', String(query.duration_days));
+  }
+  if (query.month !== undefined) params.set('month', String(query.month));
+
+  const search = params.toString();
+  return apiFetch<AlternativesResponse>(
+    `/api/alternatives/${id}${search === '' ? '' : `?${search}`}`,
+    { ...options, method: 'GET' }
+  );
 }
 
 /** F6 — score recomputed from adjusted inputs. */
