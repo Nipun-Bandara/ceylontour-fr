@@ -3,7 +3,12 @@ import Card from '@/components/Card';
 import ConfidenceChip from '@/components/ConfidenceChip';
 import ExplanationPanel from '@/components/ExplanationPanel';
 import FactorScoreRow from '@/components/FactorScoreRow';
-import type { Recommendation } from '@/types/api';
+import HighPressureAlternatives from '@/components/HighPressureAlternatives';
+import type {
+  PressureBand,
+  Recommendation,
+  TravelMonth,
+} from '@/types/api';
 
 /**
  * One destination in the ranked list (F2).
@@ -18,9 +23,22 @@ import type { Recommendation } from '@/types/api';
 export default function ResultCard({
   rank,
   result,
+  band,
+  month,
+  budgetLkr,
+  durationDays,
 }: {
   rank: number;
   result: Recommendation;
+  /**
+   * The forecast band for `month`. Undefined until the results page has it,
+   * or if that forecast failed — in which case the card simply renders without
+   * the F5 warning rather than not rendering at all.
+   */
+  band?: PressureBand;
+  month: TravelMonth;
+  budgetLkr?: number;
+  durationDays?: number;
 }) {
   return (
     <Card>
@@ -69,6 +87,20 @@ export default function ResultCard({
           explanation={result.explanation}
         />
       </div>
+
+      {/* F5. Renders nothing unless this destination's band is `high`. */}
+      {band !== undefined && (
+        <div className="mt-3">
+          <HighPressureAlternatives
+            destinationId={result.destination_id}
+            destinationName={result.name}
+            band={band}
+            month={month}
+            budgetLkr={budgetLkr}
+            durationDays={durationDays}
+          />
+        </div>
+      )}
 
       {/* F4 is reachable from here as well as by URL. */}
       <div className="mt-3">

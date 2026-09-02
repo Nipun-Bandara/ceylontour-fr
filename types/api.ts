@@ -256,6 +256,28 @@ export interface RiskResponse {
 /* GET /api/alternatives/{id}  (F5) — PROVISIONAL                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * PROVISIONAL. Query parameters for `GET /api/alternatives/{id}`.
+ *
+ * None of these are in section 7, which lists the endpoint with no parameters
+ * at all. They are here because F5 cannot be satisfied without them:
+ *
+ *   - `budget_lkr` and `duration_days` because F5 requires that an alternative
+ *     is never outside the filters the traveller already set. The endpoint
+ *     cannot honour a filter it was never told about.
+ *   - `month` because "lower pressure" only means anything for a given month.
+ *     A destination that is quieter in June may be busier in December.
+ *
+ * All three are optional so the endpoint still answers when the caller has no
+ * search behind it — opening a risk view straight from a link, for instance.
+ * In that case the alternatives come back unfiltered.
+ */
+export interface AlternativesQuery {
+  budget_lkr?: number;
+  duration_days?: number;
+  month?: TravelMonth;
+}
+
 /** PROVISIONAL. One suggested alternative destination. */
 export interface Alternative {
   destination_id: number;

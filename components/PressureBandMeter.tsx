@@ -1,3 +1,7 @@
+import PressureBandChip, {
+  BAND_LABEL,
+  BAND_MEANING,
+} from '@/components/PressureBandChip';
 import type { PressureBand } from '@/types/api';
 
 /**
@@ -13,31 +17,12 @@ import type { PressureBand } from '@/types/api';
  * anyone who cannot see the meter reads "84%".
  */
 
-const BAND_LABEL: Record<PressureBand, string> = {
-  low: 'Low pressure',
-  medium: 'Medium pressure',
-  high: 'High pressure',
-};
-
-const BAND_MEANING: Record<PressureBand, string> = {
-  low: 'Quiet. This region is well below its usual visitor levels this month.',
-  medium:
-    'Busy but manageable. This region is around its usual visitor levels this month.',
-  high: 'Crowded. This region is close to or above its usual capacity this month.',
-};
-
 // Written out in full because Tailwind scans source for complete class names
 // and would not find them if they were built from a template.
 const BAND_FILL: Record<PressureBand, string> = {
   low: 'bg-band-low',
   medium: 'bg-band-medium',
   high: 'bg-band-high',
-};
-
-const BAND_CHIP: Record<PressureBand, string> = {
-  low: 'bg-band-surface-low text-band-low',
-  medium: 'bg-band-surface-medium text-band-medium',
-  high: 'bg-band-surface-high text-band-high',
 };
 
 const BAND_TEXT: Record<PressureBand, string> = {
@@ -66,11 +51,7 @@ export default function PressureBandMeter({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${BAND_CHIP[band]}`}
-        >
-          {BAND_LABEL[band]}
-        </span>
+        <PressureBandChip band={band} />
         <span className="text-sm text-muted">
           {clamped}% forecast occupancy
         </span>
