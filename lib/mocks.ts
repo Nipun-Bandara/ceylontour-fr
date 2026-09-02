@@ -1131,6 +1131,24 @@ export const mockLogin: ApiEnvelope<LoginResponse> = envelope({
 /* Routing                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The destination list with each band recomputed for the current month.
+ *
+ * `GET /api/destinations` is documented as returning the *current* band, so
+ * "current" is taken literally here. A destination whose forecast has moved it
+ * into another band this month shows that band on the map and on the risk
+ * view, because both are reading the same forecast.
+ */
+function destinationsForCurrentMonth(): ApiEnvelope<DestinationsResponse> {
+  const month = new Date().getMonth() + 1;
+  return envelope({
+    destinations: mockDestinations.data.destinations.map((destination) => {
+      const risk = riskFor(destination.destination_id, month);
+      return risk ? { ...destination, band: risk.data.band } : destination;
+    }),
+  });
+}
+
 /** Pulls the numeric id out of a path like `/api/risk/3`. */
 function idFrom(segment: string | undefined): number | undefined {
   if (segment === undefined) return undefined;
@@ -1214,7 +1232,12 @@ export function resolveMock(
 
   switch (resource) {
     case 'destinations': {
-      if (id === undefined) return mockDestinations;
+      // The list's `band` is derived from the same forecast the risk view
+      // uses, for the current calendar month, rather than being a second
+      // stored copy. F7 requires the map's marker colours to match the bands
+      // shown elsewhere in the app, and two hardcoded lists would eventually
+      // disagree the moment one of them was edited.
+      if (id === undefined) return destinationsForCurrentMonth();
       const detail = mockDestinationDetail[id];
       if (!detail) return notFound('That destination');
       // The simulator's starting values are derived here rather than in the

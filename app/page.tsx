@@ -47,6 +47,20 @@ export default function HomePage() {
             Explore Tourism Sustainability
           </Link>
         </div>
+
+        {/* A text link rather than a third button, so the two the brief asked
+            for stay the obvious choices. Without it the map is only reachable
+            by typing a URL. */}
+        <p className="mt-4 text-sm text-muted">
+          Or{' '}
+          <Link
+            href="/map"
+            className="font-medium text-brand underline underline-offset-2"
+          >
+            see every destination on a map
+          </Link>
+          .
+        </p>
       </section>
 
       <section
