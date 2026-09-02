@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Card from '@/components/Card';
 import ConfidenceChip from '@/components/ConfidenceChip';
 import ExplanationPanel from '@/components/ExplanationPanel';
@@ -60,7 +61,23 @@ export default function ResultCard({
 
       {/* F3. No result is shown without a reason. */}
       <div className="mt-4">
-        <ExplanationPanel result={result} />
+        <ExplanationPanel
+          heading="Why was this recommended?"
+          total={result.sustainability_score}
+          totalLabel="Sustainability Score"
+          contributions={result.contributions}
+          explanation={result.explanation}
+        />
+      </div>
+
+      {/* F4 is reachable from here as well as by URL. */}
+      <div className="mt-3">
+        <Link
+          href={`/destination/${result.destination_id}/risk`}
+          className="text-sm font-medium text-brand underline underline-offset-2"
+        >
+          See overtourism risk for {result.name}
+        </Link>
       </div>
     </Card>
   );

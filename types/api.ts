@@ -245,9 +245,11 @@ export interface RiskResponse {
   /**
    * Plain-language statement that this is a regional indicator, not a per-site
    * one. The data does not support per-site claims, and F4 requires the
-   * response to say so rather than leaving the UI to remember.
+   * *response* to say so — so the sentence is served, never written into the
+   * UI. If the backend stops sending it, the line disappears rather than the
+   * app quietly making a claim the data does not support.
    */
-  scope_note: string;
+  scope: string;
 }
 
 /* ------------------------------------------------------------------ */

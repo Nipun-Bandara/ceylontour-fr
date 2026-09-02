@@ -17,7 +17,7 @@ import {
   type ContributionBar,
   type PreparedExplanation,
 } from '@/lib/contributions';
-import type { Recommendation } from '@/types/api';
+import type { Contribution } from '@/types/api';
 
 /**
  * The XAI explanation panel (F3) — the highest-marked part of the project.
@@ -99,9 +99,19 @@ function useMeasuredWidth<T extends HTMLElement>(
     const measure = () =>
       setWidth(ref.current?.getBoundingClientRect().width ?? 0);
 
+    // Measured twice on purpose. The immediate call is right in the ordinary
+    // case, but when the panel mounts as part of an async update — the risk
+    // view swapping its loading skeleton for the forecast — the box is not
+    // always at its final width yet and the first reading comes back 0. The
+    // follow-up on the next frame is after layout has settled and corrects it.
     measure();
+    const frame = requestAnimationFrame(measure);
+
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
   }, [remeasureOn]);
 
   return [ref, width];
@@ -185,11 +195,24 @@ function LegendSwatch({
   );
 }
 
-/** One line per bar style, above the chart, so the encoding is taught first. */
-function Legend({ patternId }: { patternId: string }) {
+/**
+ * One line per bar style, above the chart, so the encoding is taught first.
+ *
+ * Only the styles actually on screen are listed. On the risk view every bar is
+ * a SHAP value, and a line reading "solid bar — calculated directly from the
+ * sustainability weights" would be describing something that is not there and
+ * a calculation that is not involved.
+ */
+function Legend({
+  kinds,
+  patternId,
+}: {
+  kinds: ReadonlyArray<ContributionBar['type']>;
+  patternId: string;
+}) {
   return (
     <ul className="space-y-1.5">
-      {(['exact', 'estimated'] as const).map((type) => (
+      {kinds.map((type) => (
         <li key={type} className="flex items-start gap-2 text-xs text-ink">
           <span className="mt-0.5">
             <LegendSwatch type={type} patternId={patternId} />
@@ -218,9 +241,11 @@ function Legend({ patternId }: { patternId: string }) {
  */
 function TotalBar({
   prepared,
+  totalLabel,
   patternId,
 }: {
   prepared: PreparedExplanation;
+  totalLabel: string;
   patternId: string;
 }) {
   let offset = 0;
@@ -230,7 +255,7 @@ function TotalBar({
       width="100%"
       height={14}
       role="img"
-      aria-label={`The parts below add up to a Sustainability Score of ${prepared.score} out of 100.`}
+      aria-label={`The parts below add up to a ${totalLabel} of ${prepared.score} out of 100.`}
       className="block"
     >
       {/* The unfilled remainder, so 100 is always the frame of reference. */}
@@ -283,19 +308,41 @@ function ContributionTooltip({
       <p className="font-semibold text-ink">
         {bar.label} — {bar.percent}%
       </p>
-      <p className="mt-1 text-muted">
-        {bar.points} points of the total score.
-      </p>
+      <p className="mt-1 text-muted">{bar.points} points of the total.</p>
       <p className="mt-1 text-ink">{KIND_DESCRIPTION[bar.type]}.</p>
     </div>
   );
 }
 
+export interface ExplanationPanelProps {
+  /** The question the panel answers. */
+  heading: string;
+  /**
+   * The number the bars add up to — a Sustainability Score on a result card,
+   * the forecast pressure on the risk view. Both are 0 to 100.
+   */
+  total: number;
+  /** What that number is called, e.g. `Sustainability Score`. */
+  totalLabel: string;
+  contributions: readonly Contribution[];
+  /** The plain-language sentence, already templated by the API. */
+  explanation: string;
+}
+
+/**
+ * Takes contributions, a total and a sentence — deliberately not a
+ * `Recommendation`. F4 needs exactly this panel for the SHAP breakdown, where
+ * the total is a forecast pressure rather than a score and every bar is
+ * estimated. Widening the props was the whole of that work; there is one bar
+ * component in this app and there should stay one.
+ */
 export default function ExplanationPanel({
-  result,
-}: {
-  result: Recommendation;
-}) {
+  heading,
+  total,
+  totalLabel,
+  contributions,
+  explanation,
+}: ExplanationPanelProps) {
   // Ids have to be unique per panel — several of these render on one page and
   // each has its own <defs>. The colons React puts in a useId are stripped
   // because they are awkward inside a url(#…) reference.
@@ -306,7 +353,7 @@ export default function ExplanationPanel({
   const [expanded, setExpanded] = useState(false);
   const [chartRef, chartWidth] = useMeasuredWidth<HTMLDivElement>(expanded);
 
-  const prepared = prepareExplanation(result.contributions, result.sustainability_score);
+  const prepared = prepareExplanation(contributions, total);
   const complete = barsAccountForScore(prepared);
 
   if (prepared.bars.length === 0) {
@@ -320,6 +367,11 @@ export default function ExplanationPanel({
   }
 
   const chartHeight = prepared.bars.length * ROW_HEIGHT + 8;
+
+  // Only the bar styles actually present get a legend line.
+  const kinds = (['exact', 'estimated'] as const).filter((type) =>
+    prepared.bars.some((bar) => bar.type === type)
+  );
 
   /**
    * The percentage sitting at the end of each bar, plus the `est.` marker.
@@ -372,35 +424,37 @@ export default function ExplanationPanel({
         aria-controls={contentId}
         className="flex w-full items-center justify-between gap-2 text-left sm:hidden"
       >
-        <span className="text-sm font-semibold text-ink">
-          Why was this recommended?
-        </span>
+        <span className="text-sm font-semibold text-ink">{heading}</span>
         <span aria-hidden="true" className="text-xs text-muted">
           {expanded ? 'Hide ▲' : 'Show ▼'}
         </span>
       </button>
 
       <h4 className="hidden text-sm font-semibold text-ink sm:block">
-        Why was this recommended?
+        {heading}
       </h4>
 
       <div
         id={contentId}
         className={`${expanded ? 'block' : 'hidden'} mt-3 sm:mt-3 sm:block`}
       >
-        <Legend patternId={patternId} />
+        <Legend kinds={kinds} patternId={patternId} />
 
         <div className="mt-3">
           <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
-            <span>Sustainability Score</span>
+            <span>{totalLabel}</span>
             <span className="font-semibold text-ink">
               {prepared.score} / 100
             </span>
           </div>
-          <TotalBar prepared={prepared} patternId={patternId} />
+          <TotalBar
+            prepared={prepared}
+            totalLabel={totalLabel}
+            patternId={patternId}
+          />
           <p className="mt-1 text-[11px] text-muted">
             {complete
-              ? 'The bars below are the parts of this score, and add up to it.'
+              ? `The bars below are the parts of this ${totalLabel.toLowerCase()}, and add up to it.`
               : `These bars cover ${prepared.shownPercent}% of the reasons; ${
                   prepared.hiddenCount === 1
                     ? '1 smaller factor is'
@@ -418,7 +472,7 @@ export default function ExplanationPanel({
           {prepared.bars.map((bar) => (
             <li key={`sr-${bar.key}`}>
               {bar.label}: {bar.percent}% of the reason, {bar.points} points of
-              the score. {KIND_DESCRIPTION[bar.type]}.
+              the {totalLabel.toLowerCase()}. {KIND_DESCRIPTION[bar.type]}.
             </li>
           ))}
         </ul>
@@ -478,7 +532,7 @@ export default function ExplanationPanel({
         {/* The sentence from the API. Fixed templates, filled server-side —
             nothing here generates or edits it. */}
         <p className="mt-3 border-t border-line pt-3 text-base leading-relaxed text-ink">
-          {result.explanation}
+          {explanation}
         </p>
       </div>
     </div>

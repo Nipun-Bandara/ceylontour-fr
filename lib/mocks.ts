@@ -18,14 +18,19 @@
  *   - `meta` carries a model and index version on every response
  */
 
+import { contributionLabel } from '@/lib/factor-labels';
+import { monthLabel } from '@/lib/recommend-options';
 import type {
   AlternativesResponse,
   ApiEnvelope,
+  ApiErrorBody,
   ApiMeta,
   DashboardSummaryResponse,
   DestinationDetailResponse,
   DestinationsResponse,
+  EstimatedContribution,
   LoginResponse,
+  PressureBand,
   RecommendResponse,
   RiskResponse,
   SimulateResponse,
@@ -571,7 +576,7 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
     ],
     explanation:
       'Pressure is estimated to be high mainly because of the travel month and recent occupancy in Uva.',
-    scope_note: SCOPE_NOTE,
+    scope: SCOPE_NOTE,
   }),
   [MOCK_IDS.kalpitiya]: envelope({
     destination_id: MOCK_IDS.kalpitiya,
@@ -589,7 +594,7 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
     ],
     explanation:
       'Pressure is estimated to be medium mainly because of the travel month and a rising arrival trend.',
-    scope_note: SCOPE_NOTE,
+    scope: SCOPE_NOTE,
   }),
   [MOCK_IDS.knuckles]: envelope({
     destination_id: MOCK_IDS.knuckles,
@@ -607,7 +612,7 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
     ],
     explanation:
       'Pressure is estimated to be medium mainly because of recent occupancy and the travel month.',
-    scope_note: SCOPE_NOTE,
+    scope: SCOPE_NOTE,
   }),
   [MOCK_IDS.belihuloya]: envelope({
     destination_id: MOCK_IDS.belihuloya,
@@ -625,7 +630,7 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
     ],
     explanation:
       'Pressure is estimated to be low mainly because Sabaragamuwa sees few visitors and recent occupancy is flat.',
-    scope_note: SCOPE_NOTE,
+    scope: SCOPE_NOTE,
   }),
   [MOCK_IDS.meemure]: envelope({
     destination_id: MOCK_IDS.meemure,
@@ -643,9 +648,89 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
     ],
     explanation:
       'Pressure is estimated to be low mainly because access is difficult and recent occupancy is very low.',
-    scope_note: SCOPE_NOTE,
+    scope: SCOPE_NOTE,
   }),
 };
+
+/**
+ * A crude seasonality curve, used to make `?month=` actually change something.
+ *
+ * Every entry in `mockRisk` above is a September figure, and September is 1.00
+ * here, so the stored numbers are what you get for month 9 and the other
+ * eleven months move around them. The shape is roughly Sri Lanka's two peak
+ * seasons — December to February, and July to August — with the inter-monsoon
+ * lulls in May, June and October.
+ *
+ * This is not a model and is not meant to look like one. The real endpoint
+ * runs LightGBM over the SLTDA series; this exists so the month selector can
+ * be built and demonstrated against something that visibly responds.
+ */
+const MONTH_PRESSURE_FACTOR: Record<number, number> = {
+  1: 1.25,
+  2: 1.2,
+  3: 1.05,
+  4: 0.95,
+  5: 0.8,
+  6: 0.75,
+  7: 1.15,
+  8: 1.2,
+  9: 1.0,
+  10: 0.8,
+  11: 0.85,
+  12: 1.3,
+};
+
+/**
+ * The band thresholds. Kept here so the mock cannot disagree with itself when
+ * a month change pushes a destination across a boundary — the band is always
+ * derived from the pressure, never stored alongside it.
+ *
+ * The real thresholds live in N's config and these need checking against them.
+ */
+function bandFor(pressure: number): PressureBand {
+  if (pressure >= 70) return 'high';
+  if (pressure >= 40) return 'medium';
+  return 'low';
+}
+
+/**
+ * The risk forecast for one destination in one month.
+ *
+ * Recomputes the pressure and the band from the seasonality curve, and rebuilds
+ * the sentence so it cannot end up saying "high" next to a green band. The SHAP
+ * contributions are left alone: re-deriving those would mean inventing a second
+ * model, and the shape is what the panel is built against.
+ */
+export function riskFor(
+  id: number,
+  month: number
+): ApiEnvelope<RiskResponse> | undefined {
+  const base = mockRisk[id];
+  if (!base) return undefined;
+
+  const factor = MONTH_PRESSURE_FACTOR[month];
+  if (factor === undefined) return base;
+
+  const predicted_pressure = Math.min(
+    100,
+    Math.max(0, Math.round(base.data.predicted_pressure * factor))
+  );
+  const band = bandFor(predicted_pressure);
+
+  const [first, second] = base.data.contributions;
+  const drivers = [first, second]
+    .filter((c): c is EstimatedContribution => c !== undefined)
+    .map((c) => contributionLabel(c.factor).toLowerCase())
+    .join(' and ');
+
+  return envelope({
+    ...base.data,
+    month,
+    predicted_pressure,
+    band,
+    explanation: `Pressure in ${base.data.region} is estimated to be ${band} in ${monthLabel(month)}, mainly because of ${drivers}.`,
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* GET /api/alternatives/{id}                                          */
@@ -806,22 +891,60 @@ function idFrom(segment: string | undefined): number | undefined {
   return Number.isNaN(id) ? undefined : id;
 }
 
+/** Pulls `month` out of a query string like `?month=9`. */
+function monthFrom(query: string | undefined): number | undefined {
+  if (query === undefined) return undefined;
+  const raw = new URLSearchParams(query).get('month');
+  if (raw === null) return undefined;
+  const month = Number.parseInt(raw, 10);
+  return Number.isNaN(month) ? undefined : month;
+}
+
 /**
- * Maps a method and path to a mock envelope. Returns `undefined` when nothing
- * matches, which `lib/api.ts` turns into a loud error rather than an empty
- * screen — a missing mock should be obvious immediately.
+ * A mock standing in for an HTTP error response rather than a success.
  *
- * The query string is ignored. `?month=` changes nothing in the mock data.
+ * Without this the only failure a mock could produce was "no mock defined",
+ * which is a developer mistake, not something the UI should ever handle. A
+ * request for a destination that does not exist is a perfectly ordinary 404
+ * and the app has to cope with it, so the mock layer has to be able to say so.
+ */
+export interface MockErrorResponse {
+  status: number;
+  body: ApiErrorBody;
+}
+
+export type MockResult = ApiEnvelope<unknown> | MockErrorResponse;
+
+export function isMockError(result: MockResult): result is MockErrorResponse {
+  return 'status' in result && 'body' in result;
+}
+
+function notFound(what: string): MockErrorResponse {
+  return {
+    status: 404,
+    body: { error: { code: 'not_found', message: `${what} was not found.` } },
+  };
+}
+
+/**
+ * Maps a method and path to a mock response.
  *
- * `body` is the request body for a POST. Only `/api/recommend` looks at it, so
- * that the budget and duration filter behaves the way F2 describes.
+ * Returns `undefined` only when the *route itself* is unknown, which
+ * `lib/api.ts` turns into a loud error — that means a mock is missing and a
+ * developer needs to add one. A known route with an unknown id returns a 404
+ * instead, because that is a real condition the UI has to handle rather than a
+ * gap in the mocks.
+ *
+ * `body` is the request body for a POST; only `/api/recommend` reads it, for
+ * the budget and duration filter F2 describes. The query string is read only
+ * by `/api/risk`, for `?month=`.
  */
 export function resolveMock(
   method: string,
   path: string,
   body?: unknown
-): ApiEnvelope<unknown> | undefined {
-  const [pathname] = path.split('?');
+): MockResult | undefined {
+  const [pathname, query] = path.split('?');
   const segments = (pathname ?? '').split('/').filter(Boolean); // ['api', 'risk', '3']
   const [, resource, idSegment] = segments;
   const id = idFrom(idSegment);
@@ -845,11 +968,15 @@ export function resolveMock(
   switch (resource) {
     case 'destinations':
       if (id === undefined) return mockDestinations;
-      return mockDestinationDetail[id];
-    case 'risk':
-      return id === undefined ? undefined : mockRisk[id];
+      return mockDestinationDetail[id] ?? notFound('That destination');
+    case 'risk': {
+      if (id === undefined) return undefined;
+      const month = monthFrom(query) ?? 9;
+      return riskFor(id, month) ?? notFound('That destination');
+    }
     case 'alternatives':
-      return id === undefined ? undefined : mockAlternatives[id];
+      if (id === undefined) return undefined;
+      return mockAlternatives[id] ?? notFound('That destination');
     case 'dashboard':
       return idSegment === 'summary' ? mockDashboardSummary : undefined;
     default:

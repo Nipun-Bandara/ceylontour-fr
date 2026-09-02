@@ -14,7 +14,7 @@
  *      actually visible while building against mocks
  */
 
-import { resolveMock } from '@/lib/mocks';
+import { isMockError, resolveMock } from '@/lib/mocks';
 import type {
   AlternativesResponse,
   ApiEnvelope,
@@ -156,6 +156,12 @@ async function serveMock<T>(
       `No mock defined for ${method} ${path}. Add one to lib/mocks.ts.`
     );
   }
+  // A mock can stand in for an error response as well as a success one, so
+  // that failures like a 404 are thrown exactly as they would be against the
+  // real API and the UI handling is genuinely exercised.
+  if (isMockError(mock)) {
+    throw new ApiError(mock.body.error.code, mock.body.error.message, mock.status);
+  }
   return mock as ApiEnvelope<T>;
 }
 
@@ -293,13 +299,21 @@ export function getDestination(
   });
 }
 
-/** F4 — pressure forecast, band and SHAP breakdown for a month. */
+/**
+ * F4 — pressure forecast, band and SHAP breakdown for a month.
+ *
+ * The only helper that hands back the whole envelope rather than just `data`.
+ * F4 requires the model version to be shown next to the forecast, so that any
+ * number a user was given can be traced back to the model that produced it,
+ * and that version lives in `meta`. The other helpers will want the same
+ * treatment as soon as a view of theirs displays a version.
+ */
 export function getRisk(
   id: number,
   month: TravelMonth,
   options: RequestOptions = {}
-): Promise<RiskResponse> {
-  return apiFetch<RiskResponse>(`/api/risk/${id}?month=${month}`, {
+): Promise<ApiEnvelope<RiskResponse>> {
+  return apiFetchWithMeta<RiskResponse>(`/api/risk/${id}?month=${month}`, {
     ...options,
     method: 'GET',
   });
