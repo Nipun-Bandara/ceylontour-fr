@@ -30,10 +30,14 @@ import type {
   Alternative,
   DestinationsResponse,
   EstimatedContribution,
+  ExactContribution,
+  FactorName,
+  FactorScores,
   LoginResponse,
   PressureBand,
   RecommendResponse,
   RiskResponse,
+  SimulateInputs,
   SimulateResponse,
 } from '@/types/api';
 
@@ -430,9 +434,19 @@ export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
 /* GET /api/destinations/{id}                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What is stored for each destination. `simulation_baseline` is not in here
+ * because it is derived on the way out, in `resolveMock`, from the factors
+ * below — one rule, in one place.
+ */
+type StoredDestinationDetail = Omit<
+  DestinationDetailResponse,
+  'simulation_baseline'
+>;
+
 export const mockDestinationDetail: Record<
   number,
-  ApiEnvelope<DestinationDetailResponse>
+  ApiEnvelope<StoredDestinationDetail>
 > = {
   [MOCK_IDS.belihuloya]: envelope({
     destination_id: MOCK_IDS.belihuloya,
@@ -866,32 +880,191 @@ export function alternativesFor(
 /* ------------------------------------------------------------------ */
 
 /**
- * The mock ignores the slider values and always returns this one drop, so the
- * simulator page has both a recomputed score and a warning to render. The real
- * endpoint recalculates from the request.
+ * The index weights from F2. In the mock these belong here, because the mock
+ * is standing in for the backend and the backend is where weights live. They
+ * are never read by a component.
  */
-export const mockSimulate: ApiEnvelope<SimulateResponse> = envelope({
-  destination_id: MOCK_IDS.belihuloya,
-  sustainability_score: 74,
-  baseline_score: 89,
-  delta: -15,
-  factors: {
-    environmental: 71,
-    community: 86,
-    crowd: 62,
-    infrastructure: 79,
-    suitability: 90,
-  },
-  contributions: [
-    { factor: 'crowd', percent: 30, type: 'exact' },
-    { factor: 'environmental', percent: 28, type: 'exact' },
-    { factor: 'community', percent: 20, type: 'exact' },
-    { factor: 'suitability', percent: 13, type: 'exact' },
-    { factor: 'infrastructure', percent: 9, type: 'exact' },
-  ],
-  warning:
-    'This many visitors drops the sustainability score by 15 points, mostly through crowding and environmental strain.',
-});
+const MOCK_INDEX_WEIGHTS: Record<FactorName, number> = {
+  environmental: 0.3,
+  crowd: 0.25,
+  community: 0.2,
+  suitability: 0.15,
+  infrastructure: 0.1,
+};
+
+function weightedTotal(factors: FactorScores): number {
+  return (Object.keys(MOCK_INDEX_WEIGHTS) as FactorName[]).reduce(
+    (total, key) => total + MOCK_INDEX_WEIGHTS[key] * factors[key],
+    0
+  );
+}
+
+/**
+ * Where the three sliders start for a given destination.
+ *
+ * Derived here, in the one place, and served on the destination detail so the
+ * UI never has to re-derive it. If the UI worked these out for itself and the
+ * two rules ever drifted apart, resetting the sliders would stop returning the
+ * original score exactly — which is the one thing F6 asks for by name.
+ *
+ * `expected_visitor_level` is inverted from the crowd factor: the crowd factor
+ * scores *quietness*, so 96 means almost nobody is there, which is a visitor
+ * level of 4.
+ *
+ * `waste_management_level` has no field of its own in the dataset and is stood
+ * up here on the environmental factor. That is a proxy, not a measurement, and
+ * it needs a real column before this is anything more than a demonstration.
+ */
+export function baselineInputsFor(factors: FactorScores): SimulateInputs {
+  return {
+    expected_visitor_level: 100 - factors.crowd,
+    waste_management_level: factors.environmental,
+    infrastructure_level: factors.infrastructure,
+  };
+}
+
+/** Applies the three slider values back onto a destination's five factors. */
+function factorsFromInputs(
+  factors: FactorScores,
+  inputs: SimulateInputs
+): FactorScores {
+  return {
+    ...factors,
+    crowd: 100 - inputs.expected_visitor_level,
+    environmental: inputs.waste_management_level,
+    infrastructure: inputs.infrastructure_level,
+  };
+}
+
+const SLIDER_LABEL: Record<keyof SimulateInputs, string> = {
+  expected_visitor_level: 'the number of visitors',
+  waste_management_level: 'waste management',
+  infrastructure_level: 'infrastructure',
+};
+
+/**
+ * Re-runs the index with changed inputs. Not a simulation engine — F6 is
+ * explicit that this is the same weighted sum with different numbers in it.
+ *
+ * The score is worked out as a **change from the destination's real score**
+ * rather than as an absolute:
+ *
+ *     score = baseline_score + (weighted(now) - weighted(baseline))
+ *
+ * That matters for one of F6's acceptance criteria. Computing the weighted sum
+ * outright would give a number a point or two away from the stored score, so
+ * putting the sliders back would land near the original rather than on it.
+ * Expressed as a change, the baseline inputs produce a change of exactly zero,
+ * and reset returns exactly the original score.
+ *
+ * The result is clamped to 0–100, which holds at every slider combination
+ * because each weighted term is between 0 and its weight, and the weights sum
+ * to one. Direction holds too: raising visitors lowers the crowd factor and so
+ * can only lower the score, and raising waste management or infrastructure can
+ * only raise it.
+ */
+export function simulateFor(
+  body: unknown
+): ApiEnvelope<SimulateResponse> | undefined {
+  const request = isRecord(body) ? body : {};
+  const id =
+    typeof request.destination_id === 'number' ? request.destination_id : undefined;
+  if (id === undefined) return undefined;
+
+  const detail = mockDestinationDetail[id];
+  if (!detail) return undefined;
+
+  const baseFactors = detail.data.factors;
+  const baselineScore = detail.data.sustainability_score;
+  const baselineInputs = baselineInputsFor(baseFactors);
+
+  const clampLevel = (value: unknown, fallback: number): number =>
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.min(100, Math.max(0, Math.round(value)))
+      : fallback;
+
+  const inputs: SimulateInputs = {
+    expected_visitor_level: clampLevel(
+      request.expected_visitor_level,
+      baselineInputs.expected_visitor_level
+    ),
+    waste_management_level: clampLevel(
+      request.waste_management_level,
+      baselineInputs.waste_management_level
+    ),
+    infrastructure_level: clampLevel(
+      request.infrastructure_level,
+      baselineInputs.infrastructure_level
+    ),
+  };
+
+  const nowFactors = factorsFromInputs(baseFactors, inputs);
+  const change = weightedTotal(nowFactors) - weightedTotal(baseFactors);
+  const score = Math.min(100, Math.max(0, Math.round(baselineScore + change)));
+  const delta = score - baselineScore;
+
+  // How much each slider moved the score on its own, so the warning can name
+  // the one actually responsible rather than guessing.
+  const perSlider: Array<{ key: keyof SimulateInputs; effect: number }> = [
+    {
+      key: 'expected_visitor_level',
+      effect:
+        MOCK_INDEX_WEIGHTS.crowd *
+        (baselineInputs.expected_visitor_level - inputs.expected_visitor_level),
+    },
+    {
+      key: 'waste_management_level',
+      effect:
+        MOCK_INDEX_WEIGHTS.environmental *
+        (inputs.waste_management_level - baselineInputs.waste_management_level),
+    },
+    {
+      key: 'infrastructure_level',
+      effect:
+        MOCK_INDEX_WEIGHTS.infrastructure *
+        (inputs.infrastructure_level - baselineInputs.infrastructure_level),
+    },
+  ];
+
+  const worst = perSlider.reduce((a, b) => (b.effect < a.effect ? b : a));
+
+  const total = weightedTotal(nowFactors);
+  const contributions: ExactContribution[] = (
+    Object.keys(MOCK_INDEX_WEIGHTS) as FactorName[]
+  )
+    .map((key) => ({
+      factor: key,
+      percent:
+        total === 0
+          ? 0
+          : Math.round((MOCK_INDEX_WEIGHTS[key] * nowFactors[key] * 100) / total),
+      type: 'exact' as const,
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
+  // Rounding five percentages independently can land on 99 or 101; the largest
+  // absorbs the difference so they always sum to 100, which F3 requires.
+  const sum = contributions.reduce((t, c) => t + c.percent, 0);
+  const first = contributions[0];
+  if (first && sum !== 100) first.percent += 100 - sum;
+
+  return envelope({
+    destination_id: id,
+    sustainability_score: score,
+    baseline_score: baselineScore,
+    delta,
+    factors: nowFactors,
+    contributions,
+    explanation:
+      delta === 0
+        ? `At ${detail.data.name}'s current levels the score stays at ${score}.`
+        : `Changing these levels moves ${detail.data.name} from ${baselineScore} to ${score}, a ${delta > 0 ? 'rise' : 'fall'} of ${Math.abs(delta)} points.`,
+    warning:
+      delta < -10
+        ? `This drops the score by ${Math.abs(delta)} points. Most of that comes from ${SLIDER_LABEL[worst.key]}.`
+        : null,
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* GET /api/dashboard/summary                                          */
@@ -1029,7 +1202,7 @@ export function resolveMock(
       case 'recommend':
         return recommendFor(body);
       case 'simulate':
-        return mockSimulate;
+        return simulateFor(body) ?? notFound('That destination');
       case 'auth':
         return idSegment === 'login' ? mockLogin : undefined;
       default:
@@ -1040,9 +1213,18 @@ export function resolveMock(
   if (verb !== 'GET') return undefined;
 
   switch (resource) {
-    case 'destinations':
+    case 'destinations': {
       if (id === undefined) return mockDestinations;
-      return mockDestinationDetail[id] ?? notFound('That destination');
+      const detail = mockDestinationDetail[id];
+      if (!detail) return notFound('That destination');
+      // The simulator's starting values are derived here rather than in the
+      // UI, so there is exactly one rule and reset cannot drift off the
+      // original score.
+      return envelope({
+        ...detail.data,
+        simulation_baseline: baselineInputsFor(detail.data.factors),
+      });
+    }
     case 'risk': {
       if (id === undefined) return undefined;
       const month = monthFrom(query) ?? 9;

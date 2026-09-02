@@ -211,6 +211,15 @@ export interface DestinationDetail extends DestinationSummary {
   /** Where the factor values came from, e.g. an SLTDA report reference. */
   source_ref: string;
   confidence: Confidence;
+  /**
+   * Where the F6 simulator's three sliders start for this destination.
+   *
+   * Served rather than derived in the UI on purpose. F6 requires that resetting
+   * the sliders returns *exactly* the original score, and that only holds if
+   * the starting values and the scoring agree perfectly. One rule, on the side
+   * that owns the weights.
+   */
+  simulation_baseline: SimulateInputs;
 }
 
 /** PROVISIONAL. Response `data` for `GET /api/destinations/{id}`. */
@@ -309,16 +318,30 @@ export interface AlternativesResponse {
 /* POST /api/simulate  (F6) — PROVISIONAL                              */
 /* ------------------------------------------------------------------ */
 
-/** PROVISIONAL. The three sliders in F6. */
+/**
+ * PROVISIONAL. The three sliders in F6, all on the same 0 to 100 scale.
+ *
+ * `expected_visitor_level` was called `expected_tourists` and documented as a
+ * count of visitors per month. It is a 0 to 100 level now, because all three
+ * sliders share one scale and a field named `expected_tourists` holding `45`
+ * would almost certainly be implemented on the other side as forty-five
+ * visitors. Renamed while the endpoint is still unsigned rather than after.
+ */
 export interface SimulateRequest {
   destination_id: number;
-  /** Expected visitors per month. */
-  expected_tourists: number;
-  /** Waste management level, 0 to 100. */
+  /**
+   * How busy the place is expected to be, 0 to 100. Higher means more
+   * visitors, so raising this can only ever lower the score.
+   */
+  expected_visitor_level: number;
+  /** Waste management level, 0 to 100. Higher is better. */
   waste_management_level: number;
-  /** Infrastructure level, 0 to 100. */
+  /** Infrastructure level, 0 to 100. Higher is better. */
   infrastructure_level: number;
 }
+
+/** The three slider fields on their own, for the reset baseline. */
+export type SimulateInputs = Omit<SimulateRequest, 'destination_id'>;
 
 /**
  * PROVISIONAL. Derived from F6. This re-runs the same index calculation with
@@ -334,7 +357,16 @@ export interface SimulateResponse {
   delta: number;
   factors: FactorScores;
   contributions: ExactContribution[];
-  /** Set when the change drops the score by more than 10 points, else null. */
+  /**
+   * The plain-language sentence for this simulated state, same as every other
+   * explanation in the app. Templated server-side; nothing in the UI writes it.
+   */
+  explanation: string;
+  /**
+   * Set when the change drops the score by more than 10 points, else null.
+   * Names the slider responsible for most of the drop — the API works that out
+   * because the API is what knows the weights.
+   */
   warning: string | null;
 }
 
