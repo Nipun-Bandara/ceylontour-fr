@@ -1,5 +1,6 @@
 import Card from '@/components/Card';
 import ConfidenceChip from '@/components/ConfidenceChip';
+import ExplanationPanel from '@/components/ExplanationPanel';
 import FactorScoreRow from '@/components/FactorScoreRow';
 import type { Recommendation } from '@/types/api';
 
@@ -57,21 +58,9 @@ export default function ResultCard({
         <FactorScoreRow factors={result.factors} />
       </div>
 
-      {/*
-        ── F3 SLOT ──────────────────────────────────────────────────────
-        The XAI explanation panel goes here, on branch feat/f3-explanation:
-        contribution bars built from `result.contributions`, with exact and
-        estimated bars drawn differently, and `result.explanation` as the
-        plain-language sentence underneath.
-
-        Both fields are already on `result` and typed — this branch renders
-        neither. Replace this whole block; do not nest the panel inside it.
-        ─────────────────────────────────────────────────────────────────
-      */}
-      <div className="mt-4 rounded border border-dashed border-line p-3 text-center">
-        <p className="text-xs font-medium text-muted">
-          Explanation panel (F3) goes here
-        </p>
+      {/* F3. No result is shown without a reason. */}
+      <div className="mt-4">
+        <ExplanationPanel result={result} />
       </div>
     </Card>
   );

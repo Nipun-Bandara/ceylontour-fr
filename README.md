@@ -21,12 +21,12 @@ Grand Finale.
 | Framework | Next.js 14, App Router |
 | Language | TypeScript, `strict: true` |
 | Styling | Tailwind CSS |
-| Charts | Recharts *(added with F3)* |
+| Charts | Recharts 2.13.3 |
 | Map | react-leaflet *(added with F7)* |
 | HTTP | `fetch`, wrapped in `lib/api.ts` |
 
-Recharts and react-leaflet are not installed yet. They arrive with the
-features that need them, so the skeleton stays small.
+react-leaflet is not installed yet. It arrives with F7, so the bundle stays
+small until something needs it.
 
 ---
 
