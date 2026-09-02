@@ -106,3 +106,21 @@ The list needing sign-off:
 Also unspecified in section 7: the allowed values for `interest` on
 `POST /api/recommend`. The example shows `"nature"`. The frontend has assumed
 a fixed list; see `Interest` in `types/api.ts`.
+
+### Does `POST /api/recommend` return `"estimated"` contributions?
+
+Section 7's worked example returns index contributions only, every one of them
+`"exact"`. But `features.md` F3 describes the explanation panel as showing two
+kinds of bar, with the estimated ones coming from TreeSHAP on the pressure
+forecast. Those two statements cannot both be right, and F3 is the highest
+marked part of the project, so it is worth settling explicitly.
+
+- If the recommend response **does** carry SHAP contributions, the frontend is
+  already correct and Ella's mock in `lib/mocks.ts` is the shape to build to.
+- If it **only ever** carries exact contributions, then hatched bars belong
+  solely to the F4 risk view, and Ella's mock should go back to five exact
+  contributions.
+
+Either way no component changes: `contributions` is typed as the discriminated
+union and every bar is drawn from its own `type`. This only decides what the
+mock should say and where hatched bars are ever seen.

@@ -116,12 +116,15 @@ export const mockRecommend: ApiEnvelope<RecommendResponse> = envelope({
         infrastructure: 61,
         suitability: 85,
       },
+      // Crowd and community are deliberately tied on 22. F3 calls out ties as
+      // an edge case, and keeping one in the default data means the panel's
+      // ordering is exercised on every run rather than only in a fixture.
       contributions: [
-        { factor: 'environmental', percent: 34, type: 'exact' },
-        { factor: 'crowd', percent: 24, type: 'exact' },
-        { factor: 'community', percent: 18, type: 'exact' },
-        { factor: 'suitability', percent: 15, type: 'exact' },
-        { factor: 'infrastructure', percent: 9, type: 'exact' },
+        { factor: 'environmental', percent: 30, type: 'exact' },
+        { factor: 'crowd', percent: 22, type: 'exact' },
+        { factor: 'community', percent: 22, type: 'exact' },
+        { factor: 'suitability', percent: 16, type: 'exact' },
+        { factor: 'infrastructure', percent: 10, type: 'exact' },
       ],
       explanation:
         'Recommended mainly because of strong environmental conditions and low visitor pressure.',
@@ -160,12 +163,134 @@ export const mockRecommend: ApiEnvelope<RecommendResponse> = envelope({
         infrastructure: 88,
         suitability: 87,
       },
+      // The only result carrying a SHAP contribution, so both bar styles show
+      // up in the default demo. Ella is the high-pressure destination, so the
+      // pressure model is the one place a model estimate genuinely belongs.
+      // See the note on ESTIMATED_CONTRIBUTIONS_IN_RECOMMEND below — whether
+      // this endpoint really returns these is still an open question for N.
       contributions: [
-        { factor: 'infrastructure', percent: 26, type: 'exact' },
-        { factor: 'suitability', percent: 24, type: 'exact' },
+        { factor: 'infrastructure', percent: 24, type: 'exact' },
+        { factor: 'suitability', percent: 22, type: 'exact' },
+        { factor: 'forecast_pressure', percent: 20, type: 'estimated' },
+        { factor: 'community', percent: 18, type: 'exact' },
+        { factor: 'environmental', percent: 16, type: 'exact' },
+      ],
+      explanation:
+        'Ranked below Kalpitiya mainly because of high visitor pressure.',
+      confidence: 'measured',
+    },
+  ],
+});
+
+/**
+ * ── OPEN QUESTION FOR N ───────────────────────────────────────────────────
+ *
+ * Does `POST /api/recommend` ever return `"estimated"` contributions?
+ *
+ * Section 7's worked example returns index contributions only, all `"exact"`.
+ * But F3's table describes the explanation panel as showing both kinds, with
+ * the estimated ones coming from TreeSHAP on the pressure forecast. Those two
+ * cannot both be right.
+ *
+ *   - If the recommend response carries a SHAP contribution, Ella's mock above
+ *     is the shape to build against and the panel is already correct.
+ *   - If it only ever carries exact contributions, then the hatched bars only
+ *     ever appear in the F4 risk view, and Ella's mock should drop back to
+ *     five exact contributions.
+ *
+ * The panel handles either without changing, because `contributions` is typed
+ * as the union and every bar is drawn from its own `type`. This only decides
+ * what the mock should say. Flagged in docs/api-contract.md.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * Edge cases for the explanation panel, kept out of the demo data.
+ *
+ * These are stress fixtures, not plausible destinations — an 80% single factor
+ * is not something the index can actually produce, since no weight is above
+ * 0.30. They exist to prove the panel does not fall apart at the extremes.
+ *
+ * To look at them, temporarily return this from `recommendFor` instead of the
+ * filtered list:
+ *
+ *     export function recommendFor(): ApiEnvelope<RecommendResponse> {
+ *       return mockRecommendEdgeCases;
+ *     }
+ *
+ * Put it back afterwards. There is no test runner in this repo yet, so these
+ * are checked by eye rather than asserted.
+ */
+export const mockRecommendEdgeCases: ApiEnvelope<RecommendResponse> = envelope({
+  results: [
+    {
+      // One factor dominates. The other four bars are nearly invisible, so
+      // this is what proves short bars still render and stay labelled.
+      destination_id: MOCK_IDS.meemure,
+      name: 'Meemure (single dominant factor)',
+      sustainability_score: 86,
+      factors: {
+        environmental: 95,
+        community: 90,
+        crowd: 96,
+        infrastructure: 52,
+        suitability: 81,
+      },
+      contributions: [
+        { factor: 'environmental', percent: 80, type: 'exact' },
+        { factor: 'crowd', percent: 8, type: 'exact' },
+        { factor: 'community', percent: 6, type: 'exact' },
+        { factor: 'suitability', percent: 4, type: 'exact' },
+        { factor: 'infrastructure', percent: 2, type: 'exact' },
+      ],
+      explanation:
+        'Recommended almost entirely because of its environmental condition.',
+      confidence: 'estimated',
+    },
+    {
+      // Two factors tied at the top, so neither is obviously "first". The
+      // panel must order them the same way on every render.
+      destination_id: MOCK_IDS.belihuloya,
+      name: 'Belihuloya (two factors tied at the top)',
+      sustainability_score: 89,
+      factors: {
+        environmental: 92,
+        community: 88,
+        crowd: 91,
+        infrastructure: 76,
+        suitability: 90,
+      },
+      contributions: [
+        { factor: 'environmental', percent: 30, type: 'exact' },
+        { factor: 'crowd', percent: 30, type: 'exact' },
         { factor: 'community', percent: 20, type: 'exact' },
-        { factor: 'environmental', percent: 18, type: 'exact' },
-        { factor: 'crowd', percent: 12, type: 'exact' },
+        { factor: 'suitability', percent: 12, type: 'exact' },
+        { factor: 'infrastructure', percent: 8, type: 'exact' },
+      ],
+      explanation:
+        'Recommended mainly because of low visitor pressure and strong environmental conditions.',
+      confidence: 'measured',
+    },
+    {
+      // Six contributions. F3 allows five bars at most, so the sixth is cut
+      // and the panel has to admit that the bars no longer cover the score.
+      destination_id: MOCK_IDS.ella,
+      name: 'Ella (six contributions, one gets cut)',
+      sustainability_score: 58,
+      factors: {
+        environmental: 64,
+        community: 70,
+        crowd: 38,
+        infrastructure: 88,
+        suitability: 87,
+      },
+      contributions: [
+        { factor: 'infrastructure', percent: 24, type: 'exact' },
+        { factor: 'suitability', percent: 21, type: 'exact' },
+        { factor: 'forecast_pressure', percent: 19, type: 'estimated' },
+        { factor: 'community', percent: 16, type: 'exact' },
+        { factor: 'environmental', percent: 13, type: 'exact' },
+        { factor: 'crowd', percent: 7, type: 'exact' },
       ],
       explanation:
         'Ranked below Kalpitiya mainly because of high visitor pressure.',

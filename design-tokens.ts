@@ -74,6 +74,12 @@ export const neutralColors = {
   line: '#e2e8f0',
   /** Page background behind cards. */
   surface: '#f8fafc',
+  /**
+   * Card background. The same white as Tailwind's `bg-white`, named here so
+   * SVG code — which needs a literal colour rather than a class — has a token
+   * to reach for instead of a hex value inline.
+   */
+  card: '#ffffff',
 } as const;
 
 /** Brand colour, used for the header wordmark and primary actions. */
