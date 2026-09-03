@@ -82,6 +82,58 @@ Response `data`:
 
 ---
 
+## Checked against the running API — 3 September 2026
+
+Every type in `types/api.ts` was compared field by field with the backend's own
+OpenAPI schema, generated from `api.main:app`. The types now match it, and the
+mocks in `lib/mocks.ts` were changed to match too — a mock that sends a field
+the real API does not is worse than no mock at all.
+
+Sixteen differences were found. These were the frontend's, and are fixed:
+
+| Endpoint | Was | Now |
+|---|---|---|
+| `GET /destinations`, `/destinations/{id}` | `destination_id` | `id` |
+| `GET /destinations/{id}` | had `landscape_type` | removed — does not exist |
+| `GET /destinations/{id}` | had `simulation_baseline` | removed — derived in the UI instead |
+| `GET /risk/{id}` | had `name` | removed — the page fetches the name separately |
+| `GET /risk/{id}` | had `explanation` | removed — no sentence is sent |
+| `GET /alternatives/{id}` | had `name`, `band` | removed |
+| `GET /alternatives/{id}` | sent `month` | removed — not an accepted parameter |
+| `POST /simulate` | `expected_visitor_level` | `expected_tourists` |
+| `POST /simulate` | had `explanation` | removed |
+| `GET /dashboard/summary` | per-row `recommended_action` | one at the top level |
+| `GET /dashboard/summary` | had `model_explanation` | removed |
+| `POST /auth/login` | had `expires_in` | removed — the cookie uses a fixed lifetime |
+| `POST /recommend` | `Interest` missing `relaxation` | added |
+| `predicted_pressure` | treated as an integer | it is a float; rounded for display |
+| `GET /risk/{id}` | `month` treated as optional | it is required |
+| `POST /recommend` meta | plain `Meta` | also carries `excluded` — not used yet |
+
+### Asks for the backend
+
+Small, and each removes a workaround rather than adding a feature.
+
+1. **`name` on `GET /risk/{id}`.** The risk page needs the destination's name
+   for its heading, and the forecast response has an id and a region but no
+   name. It currently makes a second request to `GET /api/destinations/{id}`
+   purely to get one.
+2. **`explanation` on `GET /risk/{id}` and `POST /api/simulate`.** Every other
+   explanation in the app is a fixed template filled server-side, which is what
+   F3 requires. These two have none, so their panels show bars with no
+   sentence. The UI will not invent one.
+3. **The simulator's baseline.** F6 requires that resetting the sliders returns
+   *exactly* the original score. The frontend derives the starting positions
+   from the factors — `100 - crowd`, `environmental`, `infrastructure` — and
+   that only holds if `POST /api/simulate` derives its baseline the same way.
+   Worth confirming, or returning the baseline inputs alongside
+   `baseline_score` so there is one rule rather than two.
+4. **`expires_in` on login**, so the session cookie can match the token's real
+   lifetime instead of the fixed hour in `lib/session.ts`.
+5. **`id` versus `destination_id`.** The two destinations endpoints use `id`;
+   everything else uses `destination_id`. Not wrong, just a seam worth
+   flattening if it is cheap.
+
 ## Open points (frontend note, not part of the contract)
 
 Section 7 above specifies the request and response body for `POST /api/recommend`

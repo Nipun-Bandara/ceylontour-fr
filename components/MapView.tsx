@@ -151,10 +151,10 @@ export default function MapView() {
         <Card title="All destinations">
           <ul className="divide-y divide-line">
             {destinations.map((destination) => (
-              <li key={destination.destination_id}>
+              <li key={destination.id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(destination.destination_id)}
+                  onClick={() => setSelectedId(destination.id)}
                   className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <span className="font-medium text-ink">

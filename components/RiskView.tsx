@@ -8,7 +8,7 @@ import ExplanationPanel from '@/components/ExplanationPanel';
 import HighPressureAlternatives from '@/components/HighPressureAlternatives';
 import Loading from '@/components/Loading';
 import PressureBandMeter from '@/components/PressureBandMeter';
-import { getRisk, isApiError } from '@/lib/api';
+import { getDestination, getRisk, isApiError } from '@/lib/api';
 import { MONTH_OPTIONS, monthLabel } from '@/lib/recommend-options';
 import { useRecommendation } from '@/lib/recommendation-context';
 import type { ApiMeta, RiskResponse, TravelMonth } from '@/types/api';
@@ -42,6 +42,16 @@ export default function RiskView({ destinationId }: RiskViewProps) {
   );
 
   const [risk, setRisk] = useState<RiskResponse | null>(null);
+  /**
+   * The destination's name.
+   *
+   * `GET /api/risk/{id}` does not return one — it answers with an id, a region
+   * and a forecast. So the name is fetched once from the destinations endpoint
+   * and kept across month changes, rather than being re-requested every time
+   * the month moves. If that request fails the page still works; the heading
+   * just falls back to the region.
+   */
+  const [name, setName] = useState<string | null>(null);
   const [meta, setMeta] = useState<ApiMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -69,6 +79,18 @@ export default function RiskView({ destinationId }: RiskViewProps) {
   );
 
   useEffect(() => {
+    const controller = new AbortController();
+    void getDestination(destinationId, { signal: controller.signal })
+      .then((detail) => {
+        if (!controller.signal.aborted) setName(detail.name);
+      })
+      // A missing name is not worth showing an error over; the forecast is
+      // what this page is for.
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [destinationId]);
+
+  useEffect(() => {
     // A month change while a request is still in flight would otherwise race,
     // and the slower response could overwrite the newer one.
     const controller = new AbortController();
@@ -88,7 +110,9 @@ export default function RiskView({ destinationId }: RiskViewProps) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-xl font-semibold text-ink">
           Overtourism risk
-          {risk !== null && `: ${risk.name}`}
+          {name !== null
+            ? `: ${name}`
+            : risk !== null && `: ${risk.region} region`}
         </h1>
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           {/* Otherwise the simulator is only reachable by typing a URL. */}
@@ -131,6 +155,7 @@ export default function RiskView({ destinationId }: RiskViewProps) {
           {!loading && error === null && risk !== null && (
             <RiskDetail
               risk={risk}
+              name={name}
               meta={meta}
               budgetLkr={search?.request.budget_lkr}
               durationDays={search?.request.duration_days}
@@ -180,11 +205,13 @@ function MonthSelector({
 
 function RiskDetail({
   risk,
+  name,
   meta,
   budgetLkr,
   durationDays,
 }: {
   risk: RiskResponse;
+  name: string | null;
   meta: ApiMeta | null;
   budgetLkr?: number;
   durationDays?: number;
@@ -192,10 +219,14 @@ function RiskDetail({
   return (
     <>
       <Card
-        title={`${risk.name} in ${monthLabel(risk.month)}`}
+        title={`${name ?? risk.region} in ${monthLabel(risk.month)}`}
         subtitle={`Forecast for the ${risk.region} region`}
       >
-        <PressureBandMeter band={risk.band} pressure={risk.predicted_pressure} />
+        {/* The API sends a float; the meter shows whole percentages. */}
+        <PressureBandMeter
+          band={risk.band}
+          pressure={Math.round(risk.predicted_pressure)}
+        />
 
         {/*
           F4: the response has to state that this is a regional indicator, not
@@ -213,7 +244,7 @@ function RiskDetail({
       {/* F5. Renders nothing at all unless this band is `high`. */}
       <HighPressureAlternatives
         destinationId={risk.destination_id}
-        destinationName={risk.name}
+        destinationName={name ?? risk.region}
         band={risk.band}
         month={risk.month}
         budgetLkr={budgetLkr}
@@ -231,7 +262,6 @@ function RiskDetail({
           total={risk.predicted_pressure}
           totalLabel="Forecast pressure"
           contributions={risk.contributions}
-          explanation={risk.explanation}
         />
       </Card>
 

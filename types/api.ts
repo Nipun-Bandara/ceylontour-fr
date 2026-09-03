@@ -120,16 +120,17 @@ export type CrowdPreference = 'low' | 'medium' | 'high';
 export type SustainabilityWeight = 'low' | 'medium' | 'high';
 
 /**
- * PROVISIONAL. The contract shows `"nature"` as an example but does not list
- * the allowed values. This set is the frontend's assumption so the form can
- * render a fixed set of choices; confirm with N and pin it in section 7.
+ * CONFIRMED against the API's OpenAPI schema, 3 September 2026. The backend
+ * enum is the source of truth; `relaxation` was missing from the frontend's
+ * earlier guess and is now here.
  */
 export type Interest =
   | 'nature'
   | 'culture'
   | 'adventure'
+  | 'wildlife'
   | 'beach'
-  | 'wildlife';
+  | 'relaxation';
 
 /** Calendar month, 1 = January through 12 = December. */
 export type TravelMonth = number;
@@ -172,11 +173,15 @@ export interface RecommendResponse {
 /* ------------------------------------------------------------------ */
 
 /**
- * PROVISIONAL. Derived from the `destinations` table and the endpoint's stated
- * purpose, "all destinations with coordinates and current band".
+ * CONFIRMED against the API's OpenAPI schema.
+ *
+ * Note the key is `id`, not `destination_id`. Every other endpoint calls it
+ * `destination_id`; the two destinations endpoints call it `id`. That is the
+ * backend's shape, so it is this one's too — see the note at the bottom of
+ * `docs/api-contract.md`.
  */
 export interface DestinationSummary {
-  destination_id: number;
+  id: number;
   name: string;
   lat: number;
   lon: number;
@@ -197,12 +202,17 @@ export interface DestinationsResponse {
 /* ------------------------------------------------------------------ */
 
 /**
- * PROVISIONAL. Derived from the `destinations` and `destination_factors`
- * tables. `source_ref` and `confidence` are not optional in the schema, and
- * they are the answer when a judge asks where a number came from.
+ * CONFIRMED against the API's OpenAPI schema.
+ *
+ * Two fields the frontend used to assume are **not** here, and both were
+ * removed rather than left as wishful thinking:
+ *
+ * - `landscape_type` does not exist. It was never rendered.
+ * - `simulation_baseline` does not exist. The F6 simulator now derives its
+ *   starting slider positions from `factors` instead. See the note in
+ *   `components/SimulatorView.tsx`.
  */
 export interface DestinationDetail extends DestinationSummary {
-  landscape_type: string;
   activities: string[];
   cost_band: string;
   /** Typical trip length in days. */
@@ -211,15 +221,6 @@ export interface DestinationDetail extends DestinationSummary {
   /** Where the factor values came from, e.g. an SLTDA report reference. */
   source_ref: string;
   confidence: Confidence;
-  /**
-   * Where the F6 simulator's three sliders start for this destination.
-   *
-   * Served rather than derived in the UI on purpose. F6 requires that resetting
-   * the sliders returns *exactly* the original score, and that only holds if
-   * the starting values and the scoring agree perfectly. One rule, on the side
-   * that owns the weights.
-   */
-  simulation_baseline: SimulateInputs;
 }
 
 /** PROVISIONAL. Response `data` for `GET /api/destinations/{id}`. */
@@ -229,7 +230,7 @@ export type DestinationDetailResponse = DestinationDetail;
 /* GET /api/risk/{id}?month=  (F4) — PROVISIONAL                       */
 /* ------------------------------------------------------------------ */
 
-/** PROVISIONAL. Query parameters for `GET /api/risk/{id}`. */
+/** CONFIRMED. `month` is a required query parameter, not optional. */
 export interface RiskQuery {
   month: TravelMonth;
 }
@@ -240,23 +241,32 @@ export interface RiskQuery {
  * `contributions` is `EstimatedContribution[]` and not the wider union: every
  * value here is TreeSHAP output, so there is nothing exact to mix in.
  */
+/**
+ * CONFIRMED against the API's OpenAPI schema.
+ *
+ * Two fields the frontend expected are **not** sent:
+ *
+ * - `name`. The risk page needs the destination's name for its heading, so it
+ *   now fetches `GET /api/destinations/{id}` alongside the forecast.
+ * - `explanation`. Every other explanation in the app is a sentence from the
+ *   API; this one has none, so the panel renders bars without a sentence.
+ *   Both are listed as asks in `docs/api-contract.md`.
+ *
+ * `predicted_pressure` is a float here, not an integer — round it for display.
+ */
 export interface RiskResponse {
   destination_id: number;
-  name: string;
   /** Pressure is forecast per region, never per site. */
   region: string;
   month: TravelMonth;
-  /** Predicted occupancy rate as a percentage, 0 to 100. */
+  /** Predicted occupancy rate as a percentage, 0 to 100. May be fractional. */
   predicted_pressure: number;
   band: PressureBand;
   contributions: EstimatedContribution[];
-  explanation: string;
   /**
    * Plain-language statement that this is a regional indicator, not a per-site
-   * one. The data does not support per-site claims, and F4 requires the
-   * *response* to say so — so the sentence is served, never written into the
-   * UI. If the backend stops sending it, the line disappears rather than the
-   * app quietly making a claim the data does not support.
+   * one. The API sends a fixed sentence; the UI renders whatever arrives and
+   * never writes its own.
    */
   scope: string;
 }
@@ -284,7 +294,6 @@ export interface RiskResponse {
 export interface AlternativesQuery {
   budget_lkr?: number;
   duration_days?: number;
-  month?: TravelMonth;
 }
 
 /** PROVISIONAL. One suggested alternative destination. */
@@ -306,10 +315,13 @@ export interface Alternative {
  * pressure, F5 requires saying so rather than returning a bad match. In that
  * case `message` carries the explanation.
  */
+/**
+ * CONFIRMED. The response carries only the id, the list and the message — the
+ * source destination's own `name` and `band` are not repeated, because the
+ * caller already knows them.
+ */
 export interface AlternativesResponse {
   destination_id: number;
-  name: string;
-  band: PressureBand;
   alternatives: Alternative[];
   message: string | null;
 }
@@ -330,10 +342,16 @@ export interface AlternativesResponse {
 export interface SimulateRequest {
   destination_id: number;
   /**
-   * How busy the place is expected to be, 0 to 100. Higher means more
-   * visitors, so raising this can only ever lower the score.
+   * How busy the place is expected to be, 0 to 100 — a slider position, not a
+   * headcount. Higher means more visitors, so raising it can only lower the
+   * score.
+   *
+   * The frontend briefly renamed this `expected_visitor_level` on the grounds
+   * that `expected_tourists` reads like a count. The backend independently
+   * settled on the same 0-100 meaning but kept the original name, and the
+   * backend is the contract, so the name is back.
    */
-  expected_visitor_level: number;
+  expected_tourists: number;
   /** Waste management level, 0 to 100. Higher is better. */
   waste_management_level: number;
   /** Infrastructure level, 0 to 100. Higher is better. */
@@ -358,14 +376,8 @@ export interface SimulateResponse {
   factors: FactorScores;
   contributions: ExactContribution[];
   /**
-   * The plain-language sentence for this simulated state, same as every other
-   * explanation in the app. Templated server-side; nothing in the UI writes it.
-   */
-  explanation: string;
-  /**
    * Set when the change drops the score by more than 10 points, else null.
-   * Names the slider responsible for most of the drop — the API works that out
-   * because the API is what knows the weights.
+   * The API works this out, because the API is what knows the weights.
    */
   warning: string | null;
 }
@@ -377,15 +389,19 @@ export interface SimulateResponse {
 /** PROVISIONAL. How many monitored destinations sit in each band. */
 export type BandCounts = Record<PressureBand, number>;
 
-/** PROVISIONAL. One high-pressure destination on the authority dashboard. */
+/**
+ * CONFIRMED. One high-pressure destination on the authority dashboard.
+ *
+ * There is no per-row `recommended_action`; the dashboard carries a single
+ * one at the top level.
+ */
 export interface DashboardHotspot {
   destination_id: number;
   name: string;
   region: string;
+  /** May be fractional — round it for display. */
   predicted_pressure: number;
   band: PressureBand;
-  /** Generated from the data, never hardcoded. */
-  recommended_action: string;
 }
 
 /** PROVISIONAL. One bar in the global SHAP feature importance chart. */
@@ -395,21 +411,15 @@ export interface FeatureImportance {
   importance: number;
 }
 
-/** PROVISIONAL. Response `data` for `GET /api/dashboard/summary`. */
+/** CONFIRMED. Response `data` for `GET /api/dashboard/summary`. */
 export interface DashboardSummaryResponse {
   destinations_monitored: number;
   band_counts: BandCounts;
   /** Highest-pressure destinations first. */
   highest_pressure: DashboardHotspot[];
+  /** One overall action for the whole dashboard, generated from the data. */
+  recommended_action: string;
   global_feature_importance: FeatureImportance[];
-  /**
-   * One sentence about what drives the pressure model overall, to sit under
-   * the global importance chart.
-   *
-   * Served rather than written in the UI, the same as every other explanation
-   * in the app — a sentence describing a model belongs with the model.
-   */
-  model_explanation: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -424,11 +434,19 @@ export interface LoginRequest {
   password: string;
 }
 
-/** PROVISIONAL. Response `data` for `POST /api/auth/login`. */
+/**
+ * CONFIRMED. Response `data` for `POST /api/auth/login`.
+ *
+ * There is no `expires_in`. The session cookie uses a fixed lifetime instead —
+ * see `SESSION_MAX_AGE_SECONDS` in `lib/session.ts` — which is why that
+ * constant needs to stay in step with the backend's JWT expiry.
+ *
+ * `role` is a plain string on the wire. It is narrowed here because the app
+ * only understands two roles, and anything else is treated as "not an
+ * official" rather than being trusted.
+ */
 export interface LoginResponse {
   access_token: string;
-  token_type: 'bearer';
+  token_type: string;
   role: UserRole;
-  /** Token lifetime in seconds. */
-  expires_in: number;
 }
