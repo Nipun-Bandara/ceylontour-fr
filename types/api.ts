@@ -402,6 +402,14 @@ export interface DashboardSummaryResponse {
   /** Highest-pressure destinations first. */
   highest_pressure: DashboardHotspot[];
   global_feature_importance: FeatureImportance[];
+  /**
+   * One sentence about what drives the pressure model overall, to sit under
+   * the global importance chart.
+   *
+   * Served rather than written in the UI, the same as every other explanation
+   * in the app — a sentence describing a model belongs with the model.
+   */
+  model_explanation: string;
 }
 
 /* ------------------------------------------------------------------ */
