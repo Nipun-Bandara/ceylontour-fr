@@ -61,7 +61,7 @@ export default function HighPressureAlternatives({
       try {
         const response = await getAlternatives(
           destinationId,
-          { month, budget_lkr: budgetLkr, duration_days: durationDays },
+          { budget_lkr: budgetLkr, duration_days: durationDays },
           { signal }
         );
         if (signal?.aborted) return;
@@ -74,7 +74,7 @@ export default function HighPressureAlternatives({
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [destinationId, month, budgetLkr, durationDays]
+    [destinationId, budgetLkr, durationDays]
   );
 
   useEffect(() => {

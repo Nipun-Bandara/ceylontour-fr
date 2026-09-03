@@ -62,7 +62,8 @@ export default function SimilarityRing({ percent }: { percent: number }) {
           {clamped}
         </text>
       </svg>
-      <p className="mt-0.5 text-center text-[10px] leading-none text-muted">
+      {/* 11px is the floor used everywhere else in the app; 10 was too small. */}
+      <p className="mt-0.5 text-center text-[11px] leading-none text-muted">
         % similar
       </p>
     </div>

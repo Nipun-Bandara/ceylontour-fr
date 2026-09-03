@@ -1,19 +1,51 @@
 # Third-party software and data — CeylonTour frontend
 
-Every open-source dependency this repo ships, with its licence. Required by
-the competition guidelines (7.3), and it is also the honest answer when a judge
-asks what the project is built on.
+Every open-source dependency this repo installs, with its licence. Required by
+the competition guidelines (7.3), and it is the honest answer when a judge asks
+what the project is built on.
 
-Licences below were read from the installed packages in `node_modules`, not
-from memory. Re-check them when a dependency is added or upgraded.
+Licences were read from the `license` field of every `package.json` under
+`node_modules`, not from memory. **411 packages, and every one of them states a
+licence** — there are no unknowns to explain away.
 
-Last checked: 3 September 2026.
+Last audited: 3 September 2026, against `package-lock.json` as committed.
+
+To re-audit after adding or upgrading anything:
+
+```bash
+npx license-checker --summary
+```
 
 ---
 
-## Runtime dependencies
+## Summary
 
-These are shipped to the browser.
+| Licence | Packages |
+|---|---|
+| MIT | 333 |
+| ISC | 40 |
+| Apache-2.0 | 13 |
+| BSD-2-Clause | 8 |
+| BSD-3-Clause | 5 |
+| BlueOak-1.0.0 | 3 |
+| **Hippocratic-2.1** | **2** |
+| MPL-2.0 | 1 |
+| CC-BY-4.0 | 1 |
+| Python-2.0 | 1 |
+| CC0-1.0 | 1 |
+| 0BSD | 1 |
+| (MIT OR CC0-1.0) | 1 |
+| MIT AND ISC | 1 |
+| **Total** | **411** |
+
+All but two are OSI-approved permissive licences with nothing more than an
+attribution requirement.
+
+---
+
+## Direct dependencies — shipped to the browser
+
+These are the ones the team chose.
 
 | Package | Version | Licence |
 |---|---|---|
@@ -22,11 +54,9 @@ These are shipped to the browser.
 | [react-dom](https://github.com/facebook/react) | 18.3.1 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 2.13.3 | MIT |
 | [leaflet](https://github.com/Leaflet/Leaflet) | 1.9.4 | BSD-2-Clause |
-| [react-leaflet](https://github.com/PaulLeCam/react-leaflet) | 4.2.1 | **Hippocratic-2.1** — see the note below |
+| [react-leaflet](https://github.com/PaulLeCam/react-leaflet) | 4.2.1 | **Hippocratic-2.1** — see below |
 
-## Build and development dependencies
-
-Not shipped to the browser.
+## Development dependencies — not shipped
 
 | Package | Version | Licence |
 |---|---|---|
@@ -41,34 +71,48 @@ Not shipped to the browser.
 | @types/react | 18.3.17 | MIT |
 | @types/react-dom | 18.3.5 | MIT |
 
+The remaining 394 packages are transitive dependencies of the above. They are
+pinned in `package-lock.json`, and the licence breakdown in the summary table
+covers all of them.
+
 ---
 
 ## ⚠ react-leaflet is not under an OSI-approved licence
 
-`react-leaflet` 4.2.1 is released under the **Hippocratic License 2.1**, not
-MIT. This was checked against `node_modules/react-leaflet/LICENSE.md`.
+`react-leaflet` 4.2.1 and its `@react-leaflet/core` 2.1.0 are released under
+the **Hippocratic License 2.1**. Checked against
+`node_modules/react-leaflet/LICENSE.md`.
 
-Two things follow from it, and both are worth knowing before the demo:
+These are the only two packages of 411 that are not OSI-approved. Two things
+follow:
 
-1. **It is not an OSI-approved open source licence.** Hippocratic 2.1 adds
-   conditions about use consistent with human rights principles, which is why
-   the OSI does not classify it as open source. If the competition, or a
-   sponsor, requires OSI-approved licences only, this dependency is the one
-   that will fail that check — nothing else here does.
-2. **It has a Notice condition.** Anyone who receives a copy of the software
-   must also receive the licence and the copyright notice. Shipping a built
-   bundle is fine as long as this file travels with the project and the licence
-   text stays in `node_modules`/the repository, which it does.
+1. **The OSI does not classify Hippocratic 2.1 as open source.** It adds
+   conditions about use consistent with human rights principles. If the
+   competition or a sponsor requires OSI-approved licences only, these are the
+   two that fail — nothing else does.
+2. **It has a Notice condition.** Anyone receiving a copy must also receive the
+   licence and copyright notice. Keeping this file with the project satisfies
+   that.
 
-`leaflet` itself, the library actually drawing the map, is BSD-2-Clause and has
-no such condition. `react-leaflet` is only the React binding around it.
+`leaflet` itself — the library actually drawing the map — is BSD-2-Clause with
+no such condition. `react-leaflet` is only the React binding around it, so if
+this becomes a problem the map can be rebuilt directly against `leaflet` with a
+small `useEffect` wrapper, removing both packages. Not done now, because
+react-leaflet is what the proposal declared and changing a declared stack needs
+a reason stated in the demo. This is that reason if it is needed.
 
-**If this turns out to be a problem**, the map can be built directly against
-`leaflet` with a small `useEffect` wrapper and no React binding at all. That is
-perhaps thirty lines and would remove the only non-OSI dependency in the
-project. Not done now, because react-leaflet is what the proposal declared and
-changing the declared stack needs a reason stated in the demo — this note is
-that reason if it is needed.
+## Other licences worth knowing about
+
+None of these block anything, but a judge asking "any copyleft?" deserves a
+precise answer rather than a shrug.
+
+| Package | Licence | What it means here |
+|---|---|---|
+| `axe-core` 4.13.0 | MPL-2.0 | Weak copyleft, file-level. A build dependency of the linter, never shipped and never modified, so the reciprocity clause is not engaged. |
+| `caniuse-lite` 1.0.30001810 | CC-BY-4.0 | Browser support data, attribution required — this file is that attribution. Build-time only. |
+| `argparse` 2.0.1 | Python-2.0 | Permissive, attribution only. |
+| `language-subtag-registry` 0.3.23 | CC0-1.0 | Public domain dedication, no obligations. |
+| `tslib` 2.8.1 | 0BSD | Permissive with no attribution requirement at all. |
 
 ---
 
@@ -84,25 +128,22 @@ The map is not just code; the data and the tile images have their own terms.
 
 ### OpenStreetMap tile images
 
-- **Source:** `https://tile.openstreetmap.org` (the OSM Foundation's public
-  tile servers)
+- **Source:** `https://tile.openstreetmap.org` (the OSM Foundation's servers)
 - **Terms:** [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
-- **Attribution:** displayed on the map itself, in the bottom-right corner, as
-  the policy requires. It is Leaflet's built-in attribution control and is not
-  hidden, moved off screen or collapsed.
+- **Attribution:** displayed on the map itself, bottom right. It is Leaflet's
+  built-in attribution control and is not hidden, moved off screen or
+  collapsed.
 
-**Note on the tile servers.** The OSMF tiles are provided for free on a
-best-effort basis and the usage policy discourages heavy or commercial use. The
-demo's traffic is nowhere near a concern, but a deployed product with real users
-should move to a commercial tile provider rather than lean on donated
-infrastructure.
+**On the tile servers.** OSMF tiles are provided free on a best-effort basis
+and the policy discourages heavy or commercial use. The demo's traffic is
+nowhere near a concern, but a deployed product with real users should move to a
+commercial tile provider rather than lean on donated infrastructure.
 
 ---
 
 ## Data sources used by the backend
 
-Listed here for completeness; they are consumed by the API rather than by this
-repo. See the backend's own record for details.
+Consumed by the API rather than by this repo. The backend keeps its own record.
 
 | Source | Used for |
 |---|---|

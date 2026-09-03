@@ -148,7 +148,7 @@ export default function DestinationPanel({
             </p>
 
             <Link
-              href={`/destination/${detail.destination_id}/risk`}
+              href={`/destination/${detail.id}/risk`}
               className="mt-4 inline-block rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
             >
               See {detail.name} in full

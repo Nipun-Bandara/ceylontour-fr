@@ -325,8 +325,16 @@ export interface ExplanationPanelProps {
   /** What that number is called, e.g. `Sustainability Score`. */
   totalLabel: string;
   contributions: readonly Contribution[];
-  /** The plain-language sentence, already templated by the API. */
-  explanation: string;
+  /**
+   * The plain-language sentence, already templated by the API.
+   *
+   * Optional because not every endpoint sends one. `POST /api/recommend` does;
+   * `GET /api/risk`, `POST /api/simulate` and the dashboard summary do not. The
+   * panel shows the bars without a sentence rather than inventing one — F3 is
+   * explicit that these are fixed server-side templates and that nothing in
+   * the UI generates them.
+   */
+  explanation?: string;
 }
 
 /**
@@ -530,10 +538,13 @@ export default function ExplanationPanel({
         </div>
 
         {/* The sentence from the API. Fixed templates, filled server-side —
-            nothing here generates or edits it. */}
-        <p className="mt-3 border-t border-line pt-3 text-base leading-relaxed text-ink">
-          {explanation}
-        </p>
+            nothing here generates or edits it, and nothing stands in for it
+            when the endpoint does not send one. */}
+        {explanation !== undefined && explanation.trim() !== '' && (
+          <p className="mt-3 border-t border-line pt-3 text-base leading-relaxed text-ink">
+            {explanation}
+          </p>
+        )}
       </div>
     </div>
   );

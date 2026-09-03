@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isApiError, postLogin } from '@/lib/api';
-import { SESSION_COOKIE } from '@/lib/session';
+import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/session';
 
 /**
  * The session route handler (F8).
@@ -59,7 +59,9 @@ export async function POST(request: Request) {
       // cookie works over plain http on localhost.
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: session.expires_in,
+      // The API does not send an `expires_in`, so this is a fixed lifetime
+      // kept deliberately no longer than the token's own.
+      maxAge: SESSION_MAX_AGE_SECONDS,
     });
 
     // The role is returned so the form knows where to send the user. The

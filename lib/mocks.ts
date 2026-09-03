@@ -382,7 +382,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
   destinations: [
     {
-      destination_id: MOCK_IDS.belihuloya,
+      id: MOCK_IDS.belihuloya,
       name: 'Belihuloya',
       lat: 6.7167,
       lon: 80.7833,
@@ -392,7 +392,7 @@ export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
       sustainability_score: 89,
     },
     {
-      destination_id: MOCK_IDS.meemure,
+      id: MOCK_IDS.meemure,
       name: 'Meemure',
       lat: 7.3667,
       lon: 80.8333,
@@ -402,7 +402,7 @@ export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
       sustainability_score: 86,
     },
     {
-      destination_id: MOCK_IDS.knuckles,
+      id: MOCK_IDS.knuckles,
       name: 'Knuckles',
       lat: 7.45,
       lon: 80.7833,
@@ -412,7 +412,7 @@ export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
       sustainability_score: 79,
     },
     {
-      destination_id: MOCK_IDS.kalpitiya,
+      id: MOCK_IDS.kalpitiya,
       name: 'Kalpitiya',
       lat: 8.2333,
       lon: 79.7667,
@@ -422,7 +422,7 @@ export const mockDestinations: ApiEnvelope<DestinationsResponse> = envelope({
       sustainability_score: 72,
     },
     {
-      destination_id: MOCK_IDS.ella,
+      id: MOCK_IDS.ella,
       name: 'Ella',
       lat: 6.8667,
       lon: 81.0466,
@@ -453,7 +453,7 @@ export const mockDestinationDetail: Record<
   ApiEnvelope<StoredDestinationDetail>
 > = {
   [MOCK_IDS.belihuloya]: envelope({
-    destination_id: MOCK_IDS.belihuloya,
+    id: MOCK_IDS.belihuloya,
     name: 'Belihuloya',
     lat: 6.7167,
     lon: 80.7833,
@@ -461,7 +461,6 @@ export const mockDestinationDetail: Record<
     region: 'Sabaragamuwa',
     band: 'low',
     sustainability_score: 89,
-    landscape_type: 'montane river valley',
     activities: ['hiking', 'waterfalls', 'birdwatching', 'camping'],
     cost_band: 'low',
     typical_days: 3,
@@ -476,7 +475,7 @@ export const mockDestinationDetail: Record<
     confidence: 'measured',
   }),
   [MOCK_IDS.meemure]: envelope({
-    destination_id: MOCK_IDS.meemure,
+    id: MOCK_IDS.meemure,
     name: 'Meemure',
     lat: 7.3667,
     lon: 80.8333,
@@ -484,7 +483,6 @@ export const mockDestinationDetail: Record<
     region: 'Central',
     band: 'low',
     sustainability_score: 86,
-    landscape_type: 'remote forest village',
     activities: ['village stay', 'hiking', 'river bathing'],
     cost_band: 'low',
     typical_days: 2,
@@ -500,7 +498,7 @@ export const mockDestinationDetail: Record<
     confidence: 'estimated',
   }),
   [MOCK_IDS.knuckles]: envelope({
-    destination_id: MOCK_IDS.knuckles,
+    id: MOCK_IDS.knuckles,
     name: 'Knuckles',
     lat: 7.45,
     lon: 80.7833,
@@ -508,7 +506,6 @@ export const mockDestinationDetail: Record<
     region: 'Central',
     band: 'medium',
     sustainability_score: 79,
-    landscape_type: 'montane cloud forest',
     activities: ['trekking', 'birdwatching', 'camping'],
     cost_band: 'medium',
     typical_days: 3,
@@ -524,7 +521,7 @@ export const mockDestinationDetail: Record<
     confidence: 'estimated',
   }),
   [MOCK_IDS.kalpitiya]: envelope({
-    destination_id: MOCK_IDS.kalpitiya,
+    id: MOCK_IDS.kalpitiya,
     name: 'Kalpitiya',
     lat: 8.2333,
     lon: 79.7667,
@@ -532,7 +529,6 @@ export const mockDestinationDetail: Record<
     region: 'North Western',
     band: 'medium',
     sustainability_score: 72,
-    landscape_type: 'coastal lagoon and peninsula',
     activities: ['kitesurfing', 'dolphin watching', 'lagoon tours'],
     cost_band: 'medium',
     typical_days: 4,
@@ -547,7 +543,7 @@ export const mockDestinationDetail: Record<
     confidence: 'measured',
   }),
   [MOCK_IDS.ella]: envelope({
-    destination_id: MOCK_IDS.ella,
+    id: MOCK_IDS.ella,
     name: 'Ella',
     lat: 6.8667,
     lon: 81.0466,
@@ -555,7 +551,6 @@ export const mockDestinationDetail: Record<
     region: 'Uva',
     band: 'high',
     sustainability_score: 58,
-    landscape_type: 'hill country town',
     activities: ['hiking', 'train journeys', 'viewpoints', 'cafes'],
     cost_band: 'medium',
     typical_days: 3,
@@ -581,7 +576,6 @@ const SCOPE_NOTE =
 export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
   [MOCK_IDS.ella]: envelope({
     destination_id: MOCK_IDS.ella,
-    name: 'Ella',
     region: 'Uva',
     month: 9,
     predicted_pressure: 84,
@@ -599,7 +593,6 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
   }),
   [MOCK_IDS.kalpitiya]: envelope({
     destination_id: MOCK_IDS.kalpitiya,
-    name: 'Kalpitiya',
     region: 'North Western',
     month: 9,
     predicted_pressure: 61,
@@ -617,7 +610,6 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
   }),
   [MOCK_IDS.knuckles]: envelope({
     destination_id: MOCK_IDS.knuckles,
-    name: 'Knuckles',
     region: 'Central',
     month: 9,
     predicted_pressure: 55,
@@ -635,7 +627,6 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
   }),
   [MOCK_IDS.belihuloya]: envelope({
     destination_id: MOCK_IDS.belihuloya,
-    name: 'Belihuloya',
     region: 'Sabaragamuwa',
     month: 9,
     predicted_pressure: 28,
@@ -653,7 +644,6 @@ export const mockRisk: Record<number, ApiEnvelope<RiskResponse>> = {
   }),
   [MOCK_IDS.meemure]: envelope({
     destination_id: MOCK_IDS.meemure,
-    name: 'Meemure',
     region: 'Central',
     month: 9,
     predicted_pressure: 19,
@@ -736,19 +726,9 @@ export function riskFor(
   );
   const band = bandFor(predicted_pressure);
 
-  const [first, second] = base.data.contributions;
-  const drivers = [first, second]
-    .filter((c): c is EstimatedContribution => c !== undefined)
-    .map((c) => contributionLabel(c.factor).toLowerCase())
-    .join(' and ');
-
-  return envelope({
-    ...base.data,
-    month,
-    predicted_pressure,
-    band,
-    explanation: `Pressure in ${base.data.region} is estimated to be ${band} in ${monthLabel(month)}, mainly because of ${drivers}.`,
-  });
+  // No `explanation`: the real endpoint does not send one for a forecast, so
+  // neither does the mock. The panel renders its bars without a sentence.
+  return envelope({ ...base.data, month, predicted_pressure, band });
 }
 
 /* ------------------------------------------------------------------ */
@@ -816,6 +796,7 @@ export function alternativesFor(
   const source = riskFor(id, query.month);
   if (!source) return undefined;
 
+  const sourceName = destinationName(id);
   const sourcePressure = source.data.predicted_pressure;
   const monthName = monthLabel(query.month);
 
@@ -857,11 +838,11 @@ export function alternativesFor(
     .slice(0, 3)
     .map(({ otherId, data, similarity }) => ({
       destination_id: otherId,
-      name: data.name,
+      name: destinationName(otherId),
       similarity_percent: similarity,
       predicted_pressure: data.predicted_pressure,
       band: data.band,
-      reason: `Similar ${DESTINATION_CHARACTER[otherId] ?? 'landscape and activities'}, and forecast at ${data.predicted_pressure}% visitor pressure in ${monthName} against ${source.data.name}'s ${sourcePressure}%.`,
+      reason: `Similar ${DESTINATION_CHARACTER[otherId] ?? 'landscape and activities'}, and forecast at ${data.predicted_pressure}% visitor pressure in ${monthName} against ${sourceName}'s ${sourcePressure}%.`,
     }));
 
   const filtered =
@@ -869,13 +850,11 @@ export function alternativesFor(
 
   return envelope({
     destination_id: id,
-    name: source.data.name,
-    band: source.data.band,
     alternatives,
     message:
       alternatives.length > 0
         ? null
-        : `Nothing comparable to ${source.data.name} is forecast to be quieter in ${monthName}${filtered ? ' within your budget and dates' : ''}. Travelling in a quieter month may do more than changing destination.`,
+        : `Nothing comparable to ${sourceName} is forecast to be quieter in ${monthName}${filtered ? ' within your budget and dates' : ''}. Travelling in a quieter month may do more than changing destination.`,
   });
 }
 
@@ -911,7 +890,7 @@ function weightedTotal(factors: FactorScores): number {
  * two rules ever drifted apart, resetting the sliders would stop returning the
  * original score exactly — which is the one thing F6 asks for by name.
  *
- * `expected_visitor_level` is inverted from the crowd factor: the crowd factor
+ * `expected_tourists` is inverted from the crowd factor: the crowd factor
  * scores *quietness*, so 96 means almost nobody is there, which is a visitor
  * level of 4.
  *
@@ -921,7 +900,7 @@ function weightedTotal(factors: FactorScores): number {
  */
 export function baselineInputsFor(factors: FactorScores): SimulateInputs {
   return {
-    expected_visitor_level: 100 - factors.crowd,
+    expected_tourists: 100 - factors.crowd,
     waste_management_level: factors.environmental,
     infrastructure_level: factors.infrastructure,
   };
@@ -934,14 +913,14 @@ function factorsFromInputs(
 ): FactorScores {
   return {
     ...factors,
-    crowd: 100 - inputs.expected_visitor_level,
+    crowd: 100 - inputs.expected_tourists,
     environmental: inputs.waste_management_level,
     infrastructure: inputs.infrastructure_level,
   };
 }
 
 const SLIDER_LABEL: Record<keyof SimulateInputs, string> = {
-  expected_visitor_level: 'the number of visitors',
+  expected_tourists: 'the number of visitors',
   waste_management_level: 'waste management',
   infrastructure_level: 'infrastructure',
 };
@@ -988,9 +967,9 @@ export function simulateFor(
       : fallback;
 
   const inputs: SimulateInputs = {
-    expected_visitor_level: clampLevel(
-      request.expected_visitor_level,
-      baselineInputs.expected_visitor_level
+    expected_tourists: clampLevel(
+      request.expected_tourists,
+      baselineInputs.expected_tourists
     ),
     waste_management_level: clampLevel(
       request.waste_management_level,
@@ -1011,10 +990,10 @@ export function simulateFor(
   // the one actually responsible rather than guessing.
   const perSlider: Array<{ key: keyof SimulateInputs; effect: number }> = [
     {
-      key: 'expected_visitor_level',
+      key: 'expected_tourists',
       effect:
         MOCK_INDEX_WEIGHTS.crowd *
-        (baselineInputs.expected_visitor_level - inputs.expected_visitor_level),
+        (baselineInputs.expected_tourists - inputs.expected_tourists),
     },
     {
       key: 'waste_management_level',
@@ -1059,10 +1038,6 @@ export function simulateFor(
     delta,
     factors: nowFactors,
     contributions,
-    explanation:
-      delta === 0
-        ? `At ${detail.data.name}'s current levels the score stays at ${score}.`
-        : `Changing these levels moves ${detail.data.name} from ${baselineScore} to ${score}, a ${delta > 0 ? 'rise' : 'fall'} of ${Math.abs(delta)} points.`,
     warning:
       delta < -10
         ? `This drops the score by ${Math.abs(delta)} points. Most of that comes from ${SLIDER_LABEL[worst.key]}.`
@@ -1135,7 +1110,7 @@ export function dashboardSummaryFor(
 
   const rows = mockDestinations.data.destinations
     .flatMap((destination) => {
-      const risk = riskFor(destination.destination_id, month);
+      const risk = riskFor(destination.id, month);
       return risk ? [{ destination, risk: risk.data }] : [];
     })
     .sort((a, b) => b.risk.predicted_pressure - a.risk.predicted_pressure);
@@ -1143,40 +1118,41 @@ export function dashboardSummaryFor(
   const band_counts: BandCounts = { low: 0, medium: 0, high: 0 };
   for (const row of rows) band_counts[row.risk.band] += 1;
 
-  const highest_pressure: DashboardHotspot[] = rows.map(({ destination, risk }) => {
+  const highest_pressure: Array<DashboardHotspot & { quieter: string[] }> = rows.map(({ destination, risk }) => {
     const quieter = rows
       .filter((other) => other.risk.predicted_pressure < risk.predicted_pressure)
       .sort((a, b) => a.risk.predicted_pressure - b.risk.predicted_pressure)
       .map((other) => other.destination.name);
 
     return {
-      destination_id: destination.destination_id,
+      destination_id: destination.id,
       name: destination.name,
       region: destination.region,
       predicted_pressure: risk.predicted_pressure,
       band: risk.band,
-      recommended_action: recommendedActionFor(
-        destination.name,
-        destination.region,
-        risk.predicted_pressure,
-        risk.band,
-        monthName,
-        quieter
-      ),
+      quieter,
     };
   });
 
-  const [top, second] = MOCK_FEATURE_IMPORTANCE;
+  // One action for the dashboard as a whole, about whichever destination is
+  // under the most pressure. That is the one an official deals with first.
+  const worst = highest_pressure[0];
 
   return envelope({
     destinations_monitored: rows.length,
     band_counts,
-    highest_pressure,
+    highest_pressure: highest_pressure.map(({ quieter: _quieter, ...row }) => row),
+    recommended_action: worst
+      ? recommendedActionFor(
+          worst.name,
+          worst.region,
+          worst.predicted_pressure,
+          worst.band,
+          monthName,
+          worst.quieter
+        )
+      : 'No destinations are being monitored yet.',
     global_feature_importance: MOCK_FEATURE_IMPORTANCE,
-    model_explanation:
-      top && second
-        ? `Across every forecast it makes, the model leans hardest on ${contributionLabel(top.feature).toLowerCase()} and ${contributionLabel(second.feature).toLowerCase()}. These are estimates from the model, not measured quantities.`
-        : 'Feature importance is an estimate from the model, not a measured quantity.',
   });
 }
 
@@ -1215,7 +1191,6 @@ export function loginFor(body: unknown): ApiEnvelope<LoginResponse> {
     access_token: MOCK_TOKENS[role],
     token_type: 'bearer',
     role,
-    expires_in: 3600,
   });
 }
 
@@ -1242,10 +1217,24 @@ function destinationsForCurrentMonth(): ApiEnvelope<DestinationsResponse> {
   const month = new Date().getMonth() + 1;
   return envelope({
     destinations: mockDestinations.data.destinations.map((destination) => {
-      const risk = riskFor(destination.destination_id, month);
+      const risk = riskFor(destination.id, month);
       return risk ? { ...destination, band: risk.data.band } : destination;
     }),
   });
+}
+
+/**
+ * A destination's name.
+ *
+ * The risk and alternatives responses no longer carry one — the real API does
+ * not send it — so anything in the mock that needs a name looks it up from the
+ * destination list, which is where names actually live.
+ */
+function destinationName(id: number): string {
+  return (
+    mockDestinations.data.destinations.find((d) => d.id === id)?.name ??
+    `Destination ${id}`
+  );
 }
 
 /** Pulls the numeric id out of a path like `/api/risk/3`. */
@@ -1344,10 +1333,7 @@ export function resolveMock(
       // The simulator's starting values are derived here rather than in the
       // UI, so there is exactly one rule and reset cannot drift off the
       // original score.
-      return envelope({
-        ...detail.data,
-        simulation_baseline: baselineInputsFor(detail.data.factors),
-      });
+      return envelope(detail.data);
     }
     case 'risk': {
       if (id === undefined) return undefined;

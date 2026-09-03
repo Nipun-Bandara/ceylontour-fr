@@ -8,6 +8,7 @@ import ExplanationPanel from '@/components/ExplanationPanel';
 import LevelSlider from '@/components/LevelSlider';
 import Loading from '@/components/Loading';
 import { getDestination, isApiError, postSimulate } from '@/lib/api';
+import { baselineInputsFrom, isBaseline } from '@/lib/simulator';
 import type {
   DestinationDetailResponse,
   SimulateInputs,
@@ -69,7 +70,8 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
         const detail = await getDestination(destinationId, { signal });
         if (signal?.aborted) return;
         setDestination(detail);
-        setInputs(detail.simulation_baseline);
+        // The API does not send a baseline; it is derived from the factors.
+        setInputs(baselineInputsFrom(detail.factors));
         setResult(null);
       } catch (caught) {
         if (signal?.aborted) return;
@@ -144,7 +146,7 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
     setInputs((current) => (current === null ? current : { ...current, [key]: value }));
   };
 
-  const baseline = destination?.simulation_baseline ?? null;
+  const baseline = destination ? baselineInputsFrom(destination.factors) : null;
 
   const reset = () => {
     if (baseline === null) return;
@@ -153,11 +155,7 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
   };
 
   const isReset =
-    inputs !== null &&
-    baseline !== null &&
-    inputs.expected_visitor_level === baseline.expected_visitor_level &&
-    inputs.waste_management_level === baseline.waste_management_level &&
-    inputs.infrastructure_level === baseline.infrastructure_level;
+    inputs !== null && baseline !== null && isBaseline(inputs, baseline);
 
   if (!Number.isInteger(destinationId) || destinationId <= 0) return <NotFound />;
 
@@ -200,12 +198,12 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
       >
         <div className="space-y-5">
           <LevelSlider
-            id="expected_visitor_level"
+            id="expected_tourists"
             label="Expected visitors"
             hint="How busy the place is. Higher means more people."
-            value={inputs.expected_visitor_level}
-            baseline={baseline.expected_visitor_level}
-            onChange={updateInput('expected_visitor_level')}
+            value={inputs.expected_tourists}
+            baseline={baseline.expected_tourists}
+            onChange={updateInput('expected_tourists')}
           />
           <LevelSlider
             id="waste_management_level"
@@ -243,7 +241,10 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
       )}
 
       <ScoreComparison
-        baselineScore={destination.sustainability_score}
+        // Prefer the API's own baseline once we have one; it is authoritative
+        // and makes any disagreement with our derived starting positions
+        // visible rather than hidden.
+        baselineScore={result?.baseline_score ?? destination.sustainability_score}
         result={result}
         pending={pending}
       />
@@ -261,7 +262,6 @@ export default function SimulatorView({ destinationId }: SimulatorViewProps) {
             total={result.sustainability_score}
             totalLabel="Sustainability Score"
             contributions={result.contributions}
-            explanation={result.explanation}
           />
         </Card>
       )}

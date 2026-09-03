@@ -42,18 +42,27 @@ const ISLAND_BOUNDS: [[number, number], [number, number]] = [
  * token colour, and it stays that way — the destination name goes on the
  * marker's `title`, which Leaflet sets as a DOM property rather than as HTML.
  */
+/** Tap target size. The pin is smaller than this and sits inside it. */
+const MARKER_HIT = 44;
+
 function pinIcon(band: PressureBand): L.DivIcon {
   const fill = bandColors[band];
   return L.divIcon({
     className: 'ceylontour-pin',
-    html: `<svg width="26" height="34" viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M13 0C5.8 0 0 5.8 0 13c0 9.2 13 21 13 21s13-11.8 13-21C26 5.8 20.2 0 13 0z" fill="${fill}" stroke="${neutralColors.card}" stroke-width="2"/>
-      <circle cx="13" cy="13" r="4.5" fill="${neutralColors.card}"/>
-    </svg>`,
-    iconSize: [26, 34],
+    // The visible pin stays 26x34, but the element Leaflet makes clickable is
+    // 44x44 — a finger-sized target around a map-sized marker. The pin is
+    // pushed to the bottom of the box so the anchor below still lands on its
+    // point.
+    html: `<div style="width:${MARKER_HIT}px;height:${MARKER_HIT}px;display:flex;align-items:flex-end;justify-content:center">
+      <svg width="26" height="34" viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13 0C5.8 0 0 5.8 0 13c0 9.2 13 21 13 21s13-11.8 13-21C26 5.8 20.2 0 13 0z" fill="${fill}" stroke="${neutralColors.card}" stroke-width="2"/>
+        <circle cx="13" cy="13" r="4.5" fill="${neutralColors.card}"/>
+      </svg>
+    </div>`,
+    iconSize: [MARKER_HIT, MARKER_HIT],
     // Anchored at the point of the pin, so it sits on the coordinate rather
     // than beside it.
-    iconAnchor: [13, 34],
+    iconAnchor: [MARKER_HIT / 2, MARKER_HIT],
   });
 }
 
@@ -101,17 +110,17 @@ export default function DestinationMap({
 
       {destinations.map((destination) => (
         <Marker
-          key={destination.destination_id}
+          key={destination.id}
           position={[destination.lat, destination.lon]}
           icon={icons[destination.band]}
           // Set as a DOM property by Leaflet, so the name is never injected
           // as HTML.
           title={`${destination.name} — ${destination.band} pressure`}
           keyboard
-          zIndexOffset={destination.destination_id === selectedId ? 1000 : 0}
+          zIndexOffset={destination.id === selectedId ? 1000 : 0}
           eventHandlers={{
-            click: () => onSelect(destination.destination_id),
-            keypress: () => onSelect(destination.destination_id),
+            click: () => onSelect(destination.id),
+            keypress: () => onSelect(destination.id),
           }}
         />
       ))}

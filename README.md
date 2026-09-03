@@ -61,12 +61,80 @@ Open http://localhost:3000.
 
 ### Against the real API
 
-Start the backend from the `ceylontour-bk` repo first, then set in `.env.local`:
+Start the backend from the `ceylontour-bk` repo first — it needs Docker,
+Postgres, Redis and a trained model — then set in `.env.local`:
 
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_USE_MOCKS=false
 ```
+
+The types in `types/api.ts` were checked field by field against the backend's
+own OpenAPI schema on 3 September 2026 and match it. Two fields the frontend
+would like are not sent — see the asks at the bottom of `docs/api-contract.md`.
+
+---
+
+## Deploying
+
+**Not deployed yet.** There is no live URL to put here, for two reasons worth
+stating plainly rather than leaving a broken link:
+
+1. Deploying needs the team's own Vercel account. Signing in as somebody else
+   is not something that can be automated on their behalf.
+2. There is nowhere for `NEXT_PUBLIC_API_URL` to point. The backend runs under
+   Docker locally and has not been deployed either, and a frontend pointed at
+   `localhost:8000` from the public internet reaches nothing.
+
+Deploy the API first, then the frontend. Everything below is ready to run.
+
+### Steps
+
+```bash
+npx vercel login
+```
+
+```bash
+npx vercel link
+```
+
+Set the two variables for the production environment:
+
+```bash
+npx vercel env add NEXT_PUBLIC_API_URL production
+```
+
+```bash
+npx vercel env add NEXT_PUBLIC_USE_MOCKS production
+```
+
+Then deploy:
+
+```bash
+npx vercel --prod
+```
+
+### Environment variables
+
+| Variable | Production value | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://<the deployed API>` | **HTTPS.** A page served over HTTPS cannot call an `http://` API — the browser blocks it as mixed content, and every request in the app fails at once. |
+| `NEXT_PUBLIC_USE_MOCKS` | `false` | Must be `false`. Left `true`, the deployed site quietly serves sample numbers and looks like it works. |
+
+Both are `NEXT_PUBLIC_`, so both are compiled into the browser bundle. Never
+put a secret in either. They are also baked in **at build time**, so changing
+one in the Vercel dashboard does nothing until you redeploy.
+
+### Checks after deploying
+
+- The site loads over `https://`, and the padlock is clean — no mixed-content
+  warning in the console.
+- The home page does **not** show "This build is running on sample data". If it
+  does, `NEXT_PUBLIC_USE_MOCKS` is still `true`.
+- `/map` shows markers, and the OpenStreetMap attribution is visible on the map.
+- `/authority/login` sets a `Secure` cookie. `secure` is switched on
+  automatically when `NODE_ENV=production`, which Vercel sets for you.
+- Put the resulting URL in this section, replacing this note.
 
 ### Other commands
 

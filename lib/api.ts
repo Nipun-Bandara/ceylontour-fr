@@ -342,8 +342,8 @@ export function getAlternatives(
   if (query.duration_days !== undefined) {
     params.set('duration_days', String(query.duration_days));
   }
-  if (query.month !== undefined) params.set('month', String(query.month));
-
+  // No `month`. The endpoint takes budget and duration only, and works the
+  // pressure comparison out for the current month itself.
   const search = params.toString();
   return apiFetch<AlternativesResponse>(
     `/api/alternatives/${id}${search === '' ? '' : `?${search}`}`,

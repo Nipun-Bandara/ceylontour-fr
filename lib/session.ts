@@ -17,6 +17,19 @@ import type { UserRole } from '@/types/api';
 /** Name of the httpOnly cookie holding the session token. */
 export const SESSION_COOKIE = 'ceylontour_session';
 
+/**
+ * How long the session cookie lives, in seconds.
+ *
+ * `POST /api/auth/login` does not return an `expires_in`, so the cookie cannot
+ * simply mirror the token's own lifetime. This is set deliberately short so
+ * the cookie expires no later than the JWT does — a cookie outliving its token
+ * only produces a confusing 401 on the next page load.
+ *
+ * **Keep this in step with the backend's JWT expiry.** If the API starts
+ * returning `expires_in`, use that instead and delete this.
+ */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60;
+
 export interface SignInResult {
   ok: boolean;
   /** Present when sign-in succeeded. */

@@ -6,4 +6,51 @@
   body {
     @apply bg-surface text-ink antialiased;
   }
+
+  /*
+    One visible focus ring for everything that can be focused.
+
+    Individual components add their own `focus:ring` in places, and every
+    `focus:outline-none` in the codebase is paired with one — but a dozen plain
+    text links were falling back to whatever ring the browser happened to draw,
+    which differs between browsers and disappears entirely against some
+    backgrounds. This makes it consistent and ours.
+
+    `:focus-visible` rather than `:focus`, so a mouse click does not leave a
+    ring behind while keyboard navigation always shows one.
+  */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white;
+  }
+}
+
+/*
+  Overrides for Leaflet's own stylesheet.
+
+  Deliberately outside `@layer`, and deliberately more specific than the rules
+  they replace. Leaflet's CSS is imported inside the dynamically loaded map
+  chunk, so it arrives *after* this file and wins any tie on source order.
+  Specificity is what settles it: every selector below is one class heavier
+  than Leaflet's.
+*/
+
+/*
+  Leaflet renders its attribution as #0078A8 over a translucent white sitting
+  on the map's #ddd background — 3.64:1, under the 4.5:1 minimum. The
+  attribution is a licence condition, so it has to be legible and not merely
+  present. Given an opaque background and our own link colour it measures well
+  clear of the minimum.
+*/
+.leaflet-container .leaflet-control-attribution {
+  @apply bg-white text-ink;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  @apply text-brand underline;
+}
+
+/* Leaflet's zoom buttons are 26–30px. Anything a finger hits wants 44. */
+.leaflet-container .leaflet-bar a,
+.leaflet-container.leaflet-touch .leaflet-bar a {
+  @apply h-11 w-11 leading-[2.75rem];
 }
