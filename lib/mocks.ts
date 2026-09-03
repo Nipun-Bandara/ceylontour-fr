@@ -25,6 +25,8 @@ import type {
   ApiEnvelope,
   ApiErrorBody,
   ApiMeta,
+  BandCounts,
+  DashboardHotspot,
   DashboardSummaryResponse,
   DestinationDetailResponse,
   Alternative,
@@ -33,12 +35,14 @@ import type {
   ExactContribution,
   FactorName,
   FactorScores,
+  FeatureImportance,
   LoginResponse,
   PressureBand,
   RecommendResponse,
   RiskResponse,
   SimulateInputs,
   SimulateResponse,
+  UserRole,
 } from '@/types/api';
 
 /** Marked as mock versions so a stray mock response is obvious in the UI. */
@@ -1070,62 +1074,157 @@ export function simulateFor(
 /* GET /api/dashboard/summary                                          */
 /* ------------------------------------------------------------------ */
 
-export const mockDashboardSummary: ApiEnvelope<DashboardSummaryResponse> =
-  envelope({
-    destinations_monitored: 5,
-    band_counts: { low: 2, medium: 2, high: 1 },
-    highest_pressure: [
-      {
-        destination_id: MOCK_IDS.ella,
-        name: 'Ella',
-        region: 'Uva',
-        predicted_pressure: 84,
-        band: 'high',
-        recommended_action:
-          'Uva is forecast at 84% occupancy for September. Consider promoting Belihuloya and Meemure as alternatives.',
-      },
-      {
-        destination_id: MOCK_IDS.kalpitiya,
-        name: 'Kalpitiya',
-        region: 'North Western',
-        predicted_pressure: 61,
-        band: 'medium',
-        recommended_action:
-          'Pressure is rising in North Western. Monitor lagoon capacity through the kitesurfing season.',
-      },
-      {
-        destination_id: MOCK_IDS.knuckles,
-        name: 'Knuckles',
-        region: 'Central',
-        predicted_pressure: 55,
-        band: 'medium',
-        recommended_action:
-          'Trekking permits in Central are within capacity but should be reviewed monthly.',
-      },
-    ],
-    global_feature_importance: [
-      { feature: 'month', importance: 0.31 },
-      { feature: 'recent_occupancy', importance: 0.27 },
-      { feature: 'arrival_trend', importance: 0.19 },
-      { feature: 'region', importance: 0.16 },
-      { feature: 'holiday_indicator', importance: 0.07 },
-    ],
+/**
+ * The importance the pressure model puts on each of its features overall.
+ *
+ * Mean absolute SHAP across the training set, which is what a global
+ * importance view is. Stored rather than derived, because unlike everything
+ * else here it is a property of N's trained model and there is nothing in the
+ * mock to derive it from. These five sum to 1.00.
+ */
+const MOCK_FEATURE_IMPORTANCE: FeatureImportance[] = [
+  { feature: 'month', importance: 0.31 },
+  { feature: 'recent_occupancy', importance: 0.27 },
+  { feature: 'arrival_trend', importance: 0.19 },
+  { feature: 'region', importance: 0.16 },
+  { feature: 'holiday_indicator', importance: 0.07 },
+];
+
+/**
+ * What an official should do about a destination, worked out from its forecast
+ * rather than written down next to it.
+ *
+ * F8 requires the recommended action to be generated from the data, and a
+ * stored sentence would go stale the moment the forecast moved — a destination
+ * could drop to a low band while still carrying advice about crowding.
+ */
+function recommendedActionFor(
+  name: string,
+  region: string,
+  pressure: number,
+  band: PressureBand,
+  monthName: string,
+  quieterAlternatives: string[]
+): string {
+  if (band === 'high') {
+    const suggestion =
+      quieterAlternatives.length > 0
+        ? ` Consider promoting ${quieterAlternatives.slice(0, 2).join(' and ')} instead.`
+        : ' No comparable destination is quieter this month, so consider managing arrivals directly.';
+    return `${region} is forecast at ${pressure}% occupancy for ${monthName}, which is above what ${name} comfortably holds.${suggestion}`;
+  }
+  if (band === 'medium') {
+    return `${region} is forecast at ${pressure}% occupancy for ${monthName}. ${name} is within capacity but close enough to it to be worth watching monthly.`;
+  }
+  return `${region} is forecast at ${pressure}% occupancy for ${monthName}. ${name} has room, and could absorb visitors redirected from busier regions.`;
+}
+
+/**
+ * The authority overview, built from the same forecasts as every other page.
+ *
+ * F8 requires the counts to match the destination table exactly, so nothing
+ * here is stored separately: the bands, the counts, the ranking and the
+ * recommended actions are all derived from `riskFor` for the current month.
+ * A second hardcoded set of counts would have drifted the first time either
+ * side was edited.
+ */
+export function dashboardSummaryFor(
+  month: number
+): ApiEnvelope<DashboardSummaryResponse> {
+  const monthName = monthLabel(month);
+
+  const rows = mockDestinations.data.destinations
+    .flatMap((destination) => {
+      const risk = riskFor(destination.destination_id, month);
+      return risk ? [{ destination, risk: risk.data }] : [];
+    })
+    .sort((a, b) => b.risk.predicted_pressure - a.risk.predicted_pressure);
+
+  const band_counts: BandCounts = { low: 0, medium: 0, high: 0 };
+  for (const row of rows) band_counts[row.risk.band] += 1;
+
+  const highest_pressure: DashboardHotspot[] = rows.map(({ destination, risk }) => {
+    const quieter = rows
+      .filter((other) => other.risk.predicted_pressure < risk.predicted_pressure)
+      .sort((a, b) => a.risk.predicted_pressure - b.risk.predicted_pressure)
+      .map((other) => other.destination.name);
+
+    return {
+      destination_id: destination.destination_id,
+      name: destination.name,
+      region: destination.region,
+      predicted_pressure: risk.predicted_pressure,
+      band: risk.band,
+      recommended_action: recommendedActionFor(
+        destination.name,
+        destination.region,
+        risk.predicted_pressure,
+        risk.band,
+        monthName,
+        quieter
+      ),
+    };
   });
+
+  const [top, second] = MOCK_FEATURE_IMPORTANCE;
+
+  return envelope({
+    destinations_monitored: rows.length,
+    band_counts,
+    highest_pressure,
+    global_feature_importance: MOCK_FEATURE_IMPORTANCE,
+    model_explanation:
+      top && second
+        ? `Across every forecast it makes, the model leans hardest on ${contributionLabel(top.feature).toLowerCase()} and ${contributionLabel(second.feature).toLowerCase()}. These are estimates from the model, not measured quantities.`
+        : 'Feature importance is an estimate from the model, not a measured quantity.',
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* POST /api/auth/login                                                */
 /* ------------------------------------------------------------------ */
 
 /**
- * Not a real token and not a real credential check. The mock always succeeds.
- * Real auth is D's work on the backend; nothing here ever validates anything.
+ * Stand-in tokens. Not JWTs, not signed, and they prove nothing — the string
+ * simply carries the role so the rest of the mock can behave differently for
+ * an official and for a tourist.
+ *
+ * Real authentication is D's work on the backend: a signed JWT, passwords
+ * hashed with bcrypt or argon2, and the role taken from the verified claims
+ * rather than from the token text. Nothing here should outlive the mock.
  */
-export const mockLogin: ApiEnvelope<LoginResponse> = envelope({
-  access_token: 'mock.jwt.token-not-a-real-credential',
-  token_type: 'bearer',
-  role: 'authority',
-  expires_in: 3600,
-});
+export const MOCK_TOKENS: Record<UserRole, string> = {
+  authority: 'mock-not-a-real-token.authority',
+  tourist: 'mock-not-a-real-token.tourist',
+};
+
+/**
+ * The mock accepts any password. The *email* decides the role, so the
+ * tourist-gets-403 path can actually be exercised without a backend: anything
+ * containing "tourist" comes back as a tourist, everything else as an
+ * official.
+ *
+ * The password is not read, not compared and not echoed back.
+ */
+export function loginFor(body: unknown): ApiEnvelope<LoginResponse> {
+  const request = isRecord(body) ? body : {};
+  const email = typeof request.email === 'string' ? request.email : '';
+  const role: UserRole = /tourist/i.test(email) ? 'tourist' : 'authority';
+
+  return envelope({
+    access_token: MOCK_TOKENS[role],
+    token_type: 'bearer',
+    role,
+    expires_in: 3600,
+  });
+}
+
+/** The role a mock token claims. Unknown or missing tokens have no role. */
+export function roleFromMockToken(token: string | undefined): UserRole | undefined {
+  if (token === MOCK_TOKENS.authority) return 'authority';
+  if (token === MOCK_TOKENS.tourist) return 'tourist';
+  return undefined;
+}
 
 /* ------------------------------------------------------------------ */
 /* Routing                                                             */
@@ -1202,12 +1301,14 @@ function notFound(what: string): MockErrorResponse {
  *
  * `body` is the request body for a POST; only `/api/recommend` reads it, for
  * the budget and duration filter F2 describes. The query string is read only
- * by `/api/risk`, for `?month=`.
+ * by `/api/risk`, for `?month=`. `token` is the bearer token, read only by
+ * `/api/dashboard/summary`, so the 401 and 403 paths can be exercised.
  */
 export function resolveMock(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  token?: string
 ): MockResult | undefined {
   const [pathname, query] = path.split('?');
   const segments = (pathname ?? '').split('/').filter(Boolean); // ['api', 'risk', '3']
@@ -1222,7 +1323,7 @@ export function resolveMock(
       case 'simulate':
         return simulateFor(body) ?? notFound('That destination');
       case 'auth':
-        return idSegment === 'login' ? mockLogin : undefined;
+        return idSegment === 'login' ? loginFor(body) : undefined;
       default:
         return undefined;
     }
@@ -1270,8 +1371,37 @@ export function resolveMock(
         }) ?? notFound('That destination')
       );
     }
-    case 'dashboard':
-      return idSegment === 'summary' ? mockDashboardSummary : undefined;
+    case 'dashboard': {
+      if (idSegment !== 'summary') return undefined;
+      // F8: a tourist-role token must get a 403, not a blank page. The real
+      // API decides this from verified JWT claims; the mock reads the role
+      // straight off its stand-in token.
+      const role = roleFromMockToken(token);
+      if (role === undefined) {
+        return {
+          status: 401,
+          body: {
+            error: {
+              code: 'unauthenticated',
+              message: 'Sign in to view the authority dashboard.',
+            },
+          },
+        };
+      }
+      if (role !== 'authority') {
+        return {
+          status: 403,
+          body: {
+            error: {
+              code: 'forbidden',
+              message:
+                'This account does not have access to the authority dashboard.',
+            },
+          },
+        };
+      }
+      return dashboardSummaryFor(new Date().getMonth() + 1);
+    }
     default:
       return undefined;
   }
